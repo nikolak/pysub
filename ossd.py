@@ -17,7 +17,7 @@
 # OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 
-from xmlrpclib import ServerProxy, Error
+from xmlrpclib import ServerProxy
 import StringIO
 import argparse
 import gzip
@@ -25,8 +25,12 @@ import os
 import struct
 import sys
 import urllib2
+try:
+    import guessit
+except ImportError:
+    print "Can't import guessit module, only subtitle searches based on file hashes can be preformed"
 
-allowed_file_ext = [
+FILE_EXT = [
     '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx', '.avchd', '.avi',
     '.bik', '.bix', '.box', '.cam', '.dat', '.divx', '.dmf', '.dv', '.dvr-ms', '.evo',
     'flc', '.fli', '.flic', '.flv', '.flx', '.gvi', '.gvp', '.h264', '.m1v', '.m2p',
@@ -37,26 +41,47 @@ allowed_file_ext = [
     '.wmv', '.wmx', '.wrap', '.wvx', '.wx', '.x264', '.xvid'
 ]
 
-sub_language = 'en'
+sub_language = 'eng'
 opensub_domain = "http://api.opensubtitles.org/xml-rpc"
-default_useragent = "OS Test User Agent"
+useragent = "ossubd"
 
 server = ServerProxy(opensub_domain)
 
 overwrite = False
+hash_search=True
 
+def get_tests(file_name):
+    session = server.LogIn("", "", sub_language, useragent)
+    token = session["token"]
+    ep_info=guessit.guess_episode_info(file_name)
+    tv_show=ep_info['series']
+    season=ep_info['season']
+    episode=ep_info['episodeNumber']
+    print ep_info
+    query_info = ("%s S%.2dE%.2d" % (tv_show,
+                                int(season),
+                                int(episode),)
+                              ).replace(" ","+")
+    searchlist = []
+    searchlist.append({'sublanguageid':sub_language,'query':query_info})
+    moviesList = server.SearchSubtitles(token, searchlist)
+    print moviesList
+    with open("query.log","a") as q:
+        q.write(file_name+"\n")
+        q.write(str(moviesList)+"\n")
+        q.write("\n\n\n")
 
+# noinspection PyBroadException
 def find_and_download(file_list):
-    session = server.LogIn("", "", sub_language, default_useragent)
+    session = server.LogIn("", "", sub_language, useragent)
     token = session["token"]
     count = 0
     done_count = 0
-    for f in file_list:
+    for file_name in file_list:
         count += 1
         do_download = True
-        file_name, file_xtension = os.path.splitext(f)
-        print '=' * 20
-        print 'Searching subtitle for {0} | ({1}/{2})'.format(os.path.basename(f), count, len(file_list))
+        file_name, file_xtension = os.path.splitext(file_name)
+        print 'Searching subtitle for {0} | ({1}/{2})'.format(os.path.basename(file_name), count, len(file_list))
 
         if os.path.exists(file_name + '.srt'):
             if overwrite:
@@ -65,17 +90,29 @@ def find_and_download(file_list):
                 print 'Subtitle already exists, skipping'
                 do_download = False
 
-        if do_download:
-            current_hash = get_hash(f)
-            current_size = os.path.getsize(f)
+        if do_download and hash_search:
+            current_hash = get_hash(file_name)
+            file_size = os.path.getsize(file_name)
 
-            if current_hash == None:
-                print "IOError"
+            if current_hash is None:
+                print "Can't calculate hash for {}".format(file_name)
                 do_download = False
-
+        elif do_download and not hash_search:
+            ep_info=guessit.guess_episode_info(file_name)
+            tv_show=ep_info['series']
+            season=ep_info['season']
+            episode=ep_info['title']
+            query_info = ("%s S%.2dE%.2d" % (tv_show,
+                                       int(season),
+                                       int(episode),)
+                                      ).replace(" ","+")
         if do_download:
             searchlist = []
-            searchlist.append({'moviehash': current_hash, 'moviebytesize': str(current_size)})
+            if hash_search:
+                searchlist.append({'sublanguageid':sub_language,'moviehash': current_hash,
+                                   'moviebytesize': str(file_size)})
+            else:
+                searchlist.append({'sublanguageid':sub_language,'query':query_info})
             moviesList = server.SearchSubtitles(token, searchlist)
 
             if moviesList['data']:
@@ -83,6 +120,7 @@ def find_and_download(file_list):
                 index = 0
                 data = moviesList['data']
                 while index < len(data) - 1 and data[index]['ISO639'] != sub_language:
+                    # TODO: Check if this is needed and remove if not
                     index += 1
 
                 if index > len(data) - 1 or data[index]['ISO639'] != sub_language:
@@ -110,6 +148,10 @@ def find_and_download(file_list):
 
 
 def get_hash(name):
+    """
+    :param name:
+    :return:
+    """
     try:
         longlongformat = 'q'  # long long
         bytesize = struct.calcsize(longlongformat)
@@ -117,32 +159,33 @@ def get_hash(name):
         f = open(name, "rb")
 
         filesize = os.path.getsize(name)
-        hash = filesize
+        file_hash = filesize
 
         if filesize < 65536 * 2:
             return "SizeError"
 
         for x in range(65536 / bytesize):
-            buffer = f.read(bytesize)
-            (l_value,) = struct.unpack(longlongformat, buffer)
-            hash += l_value
-            hash = hash & 0xFFFFFFFFFFFFFFFF  # to remain as 64bit number
+            file_buffer = f.read(bytesize)
+            (l_value,) = struct.unpack(longlongformat, file_buffer)
+            file_hash += l_value
+            file_hash &= 0xFFFFFFFFFFFFFFFF# to remain as 64bit number
 
         f.seek(max(0, filesize - 65536), 0)
         for x in range(65536 / bytesize):
-            buffer = f.read(bytesize)
-            (l_value,) = struct.unpack(longlongformat, buffer)
-            hash += l_value
-            hash = hash & 0xFFFFFFFFFFFFFFFF
+            file_buffer = f.read(bytesize)
+            (l_value,) = struct.unpack(longlongformat, file_buffer)
+            file_hash += l_value
+            file_hash &= 0xFFFFFFFFFFFFFFFF
 
         f.close()
-        returnedhash = "%016x" % hash
-        return returnedhash
+        return "%016x" % file_hash
 
-    except(IOError):
+    except IOError:
         return None
 
+
 if __name__ == '__main__':
+    """
     valid_files = []
 
     parser = argparse.ArgumentParser()
@@ -152,6 +195,8 @@ if __name__ == '__main__':
                         help="Downloads subtitle file even if subtitle with <video filename>.srt already exists; overwrites existing file")
     parser.add_argument("-l", "--language", type=str,
                         help="Subtitle language, must be an ISO 639-1 Code i.e. (en,fr,de) Default English(en); Full list http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes")
+    parser.add_argument("-t","--type", type=str,
+                        help="Subtitle search type 'hash' or 'filename")
     args = parser.parse_args()
 
     directory = args.folder
@@ -159,6 +204,12 @@ if __name__ == '__main__':
         directory += '\\'
     if args.overwrite:
         overwrite = True
+    if args.type=="hash":
+        hash_search=True
+    elif args.type=="filename":
+        hash_search=False
+    else:
+        print "Invalid search type 'hash' or 'filename' are available options\n defaulting to hash search"
     if args.language:
         if len(args.language) == 2:
             sub_language = args.language.lower()
@@ -174,3 +225,8 @@ if __name__ == '__main__':
             valid_files.append(directory + file_name + file_extension)
 
     find_and_download(valid_files)
+    """
+    # import guessit
+    get_tests("/media/8C82817682816614/TV/The Office/Season 3/The Office (US) - [03x01] - Gay Witch Hunt.avi")
+    get_tests("/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv")
+    get_tests("/media/8C82817682816614/TV/Sherlock/Season 2/Sherlock - [02x01] - A Scandal in Belgravia.flv")

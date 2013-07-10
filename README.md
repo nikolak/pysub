@@ -5,7 +5,10 @@ Simple subtitle downloader written in python using [OpenSubtitles.org](http://ww
 
 Parses input folder for supported video files extentions and then uses opensubtitles.org api to search and download subtitles for that video file.
 
-Subtitles are in `srt` format and are saved as `<original video filename>.srt`
+Works best if used in combination with [tvnamer](tvnamer) which you can use to set proper file name/info.
+
+Dependencies: guessit lib
+Subtitles are in `srt` format and are saved as `<original video filename>.srt` in same directory
 
 Optionally can overwrite already existing subtitle files, if they're the same name as video file.
 
