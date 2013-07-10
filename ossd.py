@@ -50,7 +50,7 @@ server = ServerProxy(opensub_domain)
 
 overwrite = False
 hash_search = True
-
+AUTO_DOWNLOAD= False
 
 def get_tests(file_name):
     session = server.LogIn("", "", sub_language, useragent)
@@ -132,11 +132,58 @@ def search_subtitles(file_list):
           '\nDownloaded subtitles for {0} out of {1} files'.format(done_count, len(file_list))
 
 
+
+
 def download_prompt(subtitles_list):
+    if AUTO_DOWNLOAD:
+        auto_download(subtitles_list)
+    user_choice=""
+    possible_choices=["a","q","s"]
+    sub_dict={}
+    count=1
+    for subtitle in subtitles_list:
+        print "{}: {} | Downloads: {}".format(count,
+                                              subtitle["SubFileName"],
+                                              subtitle["SubDownloadsCnt"])
+        sub_dict[count]={"SubFileName":subtitle["SubFileName"],
+                         "SubDownloadLink":subtitle["SubDownloadLink"]}
+        count+=1
+    possible_choices.extend(sub_dict.keys())
+
+    while user_choice not in possible_choices:
+        inp=raw_input("Enter subtitle to download or 's' - skip this file, 'a' - auto download, 'q' - quit")
+        try:#Better and faster than .isdigit()
+            user_choice=int(inp)
+        except:
+            user_choice=inp
+
+        if user_choice not in possible_choices:
+            print "invalid input"
+    if user_choice in possible_choices: # if needed?
+        if user_choice.lower()=="a":
+            auto_download(subtitles_list)
+        elif user_choice.lower()=="q":
+            print 'Quitting'
+            exit()
+        elif user_choice.lower()=="s":
+            print "skipping..."
+        elif type(user_choice) is int:
+            if sub_dict.get(user_choice,False) is not False:
+                download_subtitle(sub_dict[user_choice])
+            else:
+                print "Invalid input only subtitle choices from {} to {} are available".format(1,count)
+        else:
+            print "Invalid input"
+
+
+
+def auto_download(subtitles_list):
     pass
 
 
-def download_subtitle(download_url, subtitle_name, output_url=None):
+def download_subtitle(subtitle_info,output_url=None):
+    download_url=subtitle_info["SubDownloadLink"]
+    subtitle_name=subtitle_info["SubFileName"]
     subtitle_name=subtitle_name if not output_url else output_url+"/"+subtitle_name
     sub_zip_file = urllib2.urlopen(download_url)
     try:
