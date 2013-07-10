@@ -25,6 +25,7 @@ import os
 import struct
 import sys
 import urllib2
+
 try:
     import guessit
 except ImportError:
@@ -48,39 +49,41 @@ useragent = "ossubd"
 server = ServerProxy(opensub_domain)
 
 overwrite = False
-hash_search=True
+hash_search = True
+
 
 def get_tests(file_name):
     session = server.LogIn("", "", sub_language, useragent)
     token = session["token"]
-    ep_info=guessit.guess_episode_info(file_name)
-    tv_show=ep_info['series']
-    season=ep_info['season']
-    episode=ep_info['episodeNumber']
+    ep_info = guessit.guess_episode_info(file_name)
+    tv_show = ep_info['series']
+    season = ep_info['season']
+    episode = ep_info['episodeNumber']
     print ep_info
     query_info = ("%s S%.2dE%.2d" % (tv_show,
-                                int(season),
-                                int(episode),)
-                              ).replace(" ","+")
+                                     int(season),
+                                     int(episode),)
+    ).replace(" ", "+")
     searchlist = []
-    searchlist.append({'sublanguageid':sub_language,'query':query_info})
+    searchlist.append({'sublanguageid': sub_language, 'query': query_info})
     moviesList = server.SearchSubtitles(token, searchlist)
     print moviesList
-    with open("query.log","a") as q:
-        q.write(file_name+"\n")
-        q.write(str(moviesList)+"\n")
+    with open("query.log", "a") as q:
+        q.write(file_name + "\n")
+        q.write(str(moviesList) + "\n")
         q.write("\n\n\n")
 
 # noinspection PyBroadException
-def find_and_download(file_list):
-    session = server.LogIn("", "", sub_language, useragent)
-    token = session["token"]
+def search_subtitles(file_list):
+    # session = server.LogIn("", "", sub_language, useragent)
+    # token = session["token"]
     count = 0
     done_count = 0
     for file_name in file_list:
         count += 1
         do_download = True
         file_name, file_xtension = os.path.splitext(file_name)
+        # print file_name, file_xtension
         print 'Searching subtitle for {0} | ({1}/{2})'.format(os.path.basename(file_name), count, len(file_list))
 
         if os.path.exists(file_name + '.srt'):
@@ -91,60 +94,60 @@ def find_and_download(file_list):
                 do_download = False
 
         if do_download and hash_search:
-            current_hash = get_hash(file_name)
-            file_size = os.path.getsize(file_name)
+            current_hash = get_hash(file_name + file_xtension)
+            file_size = os.path.getsize(file_name + file_xtension)
 
             if current_hash is None:
                 print "Can't calculate hash for {}".format(file_name)
                 do_download = False
         elif do_download and not hash_search:
-            ep_info=guessit.guess_episode_info(file_name)
-            tv_show=ep_info['series']
-            season=ep_info['season']
-            episode=ep_info['title']
+            ep_info = guessit.guess_episode_info(file_name)
+            tv_show = ep_info['series']
+            season = ep_info['season']
+            episode = ep_info['title']
             query_info = ("%s S%.2dE%.2d" % (tv_show,
-                                       int(season),
-                                       int(episode),)
-                                      ).replace(" ","+")
+                                             int(season),
+                                             int(episode),)
+            ).replace(" ", "+")
         if do_download:
             searchlist = []
             if hash_search:
-                searchlist.append({'sublanguageid':sub_language,'moviehash': current_hash,
+                searchlist.append({'sublanguageid': sub_language, 'moviehash': current_hash,
                                    'moviebytesize': str(file_size)})
             else:
-                searchlist.append({'sublanguageid':sub_language,'query':query_info})
-            moviesList = server.SearchSubtitles(token, searchlist)
+                searchlist.append({'sublanguageid': sub_language, 'query': query_info})
+                # moviesList = server.SearchSubtitles(token, searchlist)
+            import json#XXX: Debug stuff
 
-            if moviesList['data']:
-                #http://trac.opensubtitles.org/projects/opensubtitles/wiki/XMLRPC#SearchSubtitles
-                index = 0
-                data = moviesList['data']
-                while index < len(data) - 1 and data[index]['ISO639'] != sub_language:
-                    # TODO: Check if this is needed and remove if not
-                    index += 1
-
-                if index > len(data) - 1 or data[index]['ISO639'] != sub_language:
-                    print 'Can\'t find subtitle in desired language...'
-
-                else:
-                    sub = data[index]
-                    subURL = sub['SubDownloadLink']
-                    print 'Subtitle found, downloading...'
-                    sub_zip_file = urllib2.urlopen(subURL)
-
-                    try:
-                        sub_gzip = gzip.GzipFile(fileobj=StringIO.StringIO(sub_zip_file.read()))
-                        subtitle_content = sub_gzip.read()
-                        with open(file_name + '.srt', 'wb') as subtitle_output:
-                            subtitle_output.write(subtitle_content)
-                        done_count += 1
-                        print 'Done!'
-                    except:
-                        print 'couldn\'t save subtitle, permissions issue?'
+            moviesList = json.load(open("data.json"))
+            if moviesList["status"]!="200 OK":
+                print "Error searching for subtitles..."
             else:
-                print 'Couldn\'t find subtitles in {0} for {1}'.format(sub_language, file_name)
-    print '-' * 30 +\
-        '\nDownloaded subtitles for {0} out of {1} files'.format(done_count, len(file_list))
+                if moviesList['data']:
+                    download_prompt(moviesList["data"])
+                #http://trac.opensubtitles.org/projects/opensubtitles/wiki/XMLRPC#SearchSubtitles
+                else:
+                    print 'Couldn\'t find subtitles in {0} for {1}'.format(sub_language, file_name)
+    print '-' * 30 + \
+          '\nDownloaded subtitles for {0} out of {1} files'.format(done_count, len(file_list))
+
+
+def download_prompt(subtitles_list):
+    pass
+
+
+def download_subtitle(download_url, subtitle_name, output_url=None):
+    subtitle_name=subtitle_name if not output_url else output_url+"/"+subtitle_name
+    sub_zip_file = urllib2.urlopen(download_url)
+    try:
+        sub_gzip = gzip.GzipFile(fileobj=StringIO.StringIO(sub_zip_file.read()))
+        subtitle_content = sub_gzip.read()
+        with open(subtitle_name + '.srt', 'wb') as subtitle_output:
+            subtitle_output.write(subtitle_content)
+        print 'Done!'
+    except:
+        print 'couldn\'t save subtitle, permissions issue?'
+    pass
 
 
 def get_hash(name):
@@ -227,6 +230,7 @@ if __name__ == '__main__':
     find_and_download(valid_files)
     """
     # import guessit
-    get_tests("/media/8C82817682816614/TV/The Office/Season 3/The Office (US) - [03x01] - Gay Witch Hunt.avi")
-    get_tests("/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv")
-    get_tests("/media/8C82817682816614/TV/Sherlock/Season 2/Sherlock - [02x01] - A Scandal in Belgravia.flv")
+    # get_tests("/media/8C82817682816614/TV/The Office/Season 3/The Office (US) - [03x01] - Gay Witch Hunt.avi")
+    search_subtitles(
+        ["/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv"])
+    # get_tests("/media/8C82817682816614/TV/Sherlock/Season 2/Sherlock - [02x01] - A Scandal in Belgravia.flv")
