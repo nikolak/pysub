@@ -27,6 +27,7 @@ import sys
 import urllib2
 
 try:
+    # noinspection PyUnresolvedReferences
     import guessit
 except ImportError:
     print "Can't import guessit module, only subtitle searches based on file hashes can be preformed"
@@ -54,33 +55,44 @@ AUTO_DOWNLOAD = False
 SUBFOLDER = "Subs"
 
 
-def get_tests(file_name):
-    session = server.LogIn("", "", sub_language, useragent)
-    token = session["token"]
-    ep_info = guessit.guess_episode_info(file_name)
-    tv_show = ep_info['series']
-    season = ep_info['season']
-    episode = ep_info['episodeNumber']
-    print ep_info
-    query_info = ("%s S%.2dE%.2d" % (tv_show,
-                                     int(season),
-                                     int(episode),)
-    ).replace(" ", "+")
-    searchlist = []
-    searchlist.append({'sublanguageid': sub_language, 'query': query_info})
-    moviesList = server.SearchSubtitles(token, searchlist)
-    print moviesList
-    with open("query.log", "a") as q:
-        q.write(file_name + "\n")
-        q.write(str(moviesList) + "\n")
-        q.write("\n\n\n")
+# def get_tests(file_name):
+#     """
+#
+#     :param file_name:
+#     """
+#     session = server.LogIn("", "", sub_language, useragent)
+#     token = session["token"]
+#     ep_info = guessit.guess_episode_info(file_name)
+#     tv_show = ep_info['series']
+#     season = ep_info['season']
+#     episode = ep_info['episodeNumber']
+#     print ep_info
+#     query_info = ("%s S%.2dE%.2d" % (tv_show,
+#                                      int(season),
+#                                      int(episode),)
+#     ).replace(" ", "+")
+#     searchlist = [{'sublanguageid': sub_language, 'query': query_info}]
+#     moviesList = server.SearchSubtitles(token, searchlist)
+#     with open("query.log", "a") as q:
+#         q.write(file_name + "\n")
+#         q.write(str(moviesList) + "\n")
+#         q.write("\n\n\n")
+#
 
 # noinspection PyBroadException
 def search_subtitles(file_list):
+    """
+    :param file_list:
+    """
     # session = server.LogIn("", "", sub_language, useragent)
     # token = session["token"]
     count = 0
     done_count = 0
+    # XXX: Declarations under not needed in working script, but are useful for debugging
+    current_hash = 000000000
+    file_size = 0
+    query_info = None
+    ep_info = None
     for file_name in file_list:
         count += 1
         do_download = True
@@ -115,12 +127,11 @@ def search_subtitles(file_list):
                                              int(episode),)
             ).replace(" ", "+")
         if do_download:
-            searchlist = []
             if hash_search:
-                searchlist.append({'sublanguageid': sub_language, 'moviehash': current_hash,
-                                   'moviebytesize': str(file_size)})
+                searchlist = [{'sublanguageid': sub_language, 'moviehash': current_hash,
+                               'moviebytesize': str(file_size)}]
             else:
-                searchlist.append({'sublanguageid': sub_language, 'query': query_info})
+                searchlist = [{'sublanguageid': sub_language, 'query': query_info}]
                 # moviesList = server.SearchSubtitles(token, searchlist)
             import json#XXX: Debug stuff
 
@@ -180,6 +191,7 @@ def download_prompt(subtitles_list, episode_info):
             print "Invalid input"
 
 
+# noinspection PyArgumentList
 def auto_download(subtitles_list, ep_info):
     """
     episode_info:
