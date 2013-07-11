@@ -49,9 +49,9 @@ useragent = "ossubd"
 server = ServerProxy(opensub_domain)
 
 overwrite = False
-hash_search = True
+hash_search = False
 AUTO_DOWNLOAD= False
-
+SUBFOLDER="Subs"
 def get_tests(file_name):
     session = server.LogIn("", "", sub_language, useragent)
     token = session["token"]
@@ -82,9 +82,10 @@ def search_subtitles(file_list):
     for file_name in file_list:
         count += 1
         do_download = True
-        file_name, file_xtension = os.path.splitext(file_name)
+        file_name, file_extension = os.path.splitext(file_name)
         # print file_name, file_xtension
-        print 'Searching subtitle for {0} | ({1}/{2})'.format(os.path.basename(file_name), count, len(file_list))
+        print "-"*50
+        print 'Searching subtitle for "{0}" | ({1}/{2})'.format(os.path.basename(file_name), count, len(file_list))
 
         if os.path.exists(file_name + '.srt'):
             if overwrite:
@@ -94,21 +95,23 @@ def search_subtitles(file_list):
                 do_download = False
 
         if do_download and hash_search:
-            current_hash = get_hash(file_name + file_xtension)
-            file_size = os.path.getsize(file_name + file_xtension)
+            current_hash = get_hash(file_name + file_extension)
+            file_size = os.path.getsize(file_name + file_extension)
 
             if current_hash is None:
                 print "Can't calculate hash for {}".format(file_name)
                 do_download = False
         elif do_download and not hash_search:
             ep_info = guessit.guess_episode_info(file_name)
+            ep_info["filename"]=file_name
             tv_show = ep_info['series']
             season = ep_info['season']
-            episode = ep_info['title']
+            episode = ep_info['episodeNumber']
+
             query_info = ("%s S%.2dE%.2d" % (tv_show,
                                              int(season),
                                              int(episode),)
-            ).replace(" ", "+")
+                                            ).replace(" ", "+")
         if do_download:
             searchlist = []
             if hash_search:
@@ -116,15 +119,14 @@ def search_subtitles(file_list):
                                    'moviebytesize': str(file_size)})
             else:
                 searchlist.append({'sublanguageid': sub_language, 'query': query_info})
-                # moviesList = server.SearchSubtitles(token, searchlist)
+            # moviesList = server.SearchSubtitles(token, searchlist)
             import json#XXX: Debug stuff
-
             moviesList = json.load(open("data.json"))
             if moviesList["status"]!="200 OK":
                 print "Error searching for subtitles..."
             else:
                 if moviesList['data']:
-                    download_prompt(moviesList["data"])
+                    download_prompt(moviesList["data"],ep_info)
                 #http://trac.opensubtitles.org/projects/opensubtitles/wiki/XMLRPC#SearchSubtitles
                 else:
                     print 'Couldn\'t find subtitles in {0} for {1}'.format(sub_language, file_name)
@@ -134,7 +136,7 @@ def search_subtitles(file_list):
 
 
 
-def download_prompt(subtitles_list):
+def download_prompt(subtitles_list, episode_info):
     if AUTO_DOWNLOAD:
         auto_download(subtitles_list)
     user_choice=""
@@ -142,17 +144,17 @@ def download_prompt(subtitles_list):
     sub_dict={}
     count=1
     for subtitle in subtitles_list:
-        print "{}: {} | Downloads: {}".format(count,
-                                              subtitle["SubFileName"],
-                                              subtitle["SubDownloadsCnt"])
+        print "{}: {} | Downloads: {:^}".format(count,
+                                                subtitle["SubFileName"],
+                                                subtitle["SubDownloadsCnt"],)
         sub_dict[count]={"SubFileName":subtitle["SubFileName"],
                          "SubDownloadLink":subtitle["SubDownloadLink"]}
         count+=1
     possible_choices.extend(sub_dict.keys())
 
     while user_choice not in possible_choices:
-        inp=raw_input("Enter subtitle to download or 's' - skip this file, 'a' - auto download, 'q' - quit")
-        try:#Better and faster than .isdigit()
+        inp=raw_input("Enter subtitle # to download or 's' - skip this file, 'a' - auto download, 'q' - quit\n>>")
+        try:#Faster than .isdigit()
             user_choice=int(inp)
         except:
             user_choice=inp
@@ -160,47 +162,91 @@ def download_prompt(subtitles_list):
         if user_choice not in possible_choices:
             print "invalid input"
     if user_choice in possible_choices: # if needed?
-        if user_choice.lower()=="a":
-            auto_download(subtitles_list)
+        if type(user_choice) is int:
+            if sub_dict.get(user_choice,False) is not False:
+                download_subtitle(sub_dict[user_choice], episode_info)
+            else:
+                print "Invalid input only subtitle choices from {} to {} are available".format(1,count)
+        elif user_choice.lower()=="a":
+            auto_download(subtitles_list,episode_info)
         elif user_choice.lower()=="q":
             print 'Quitting'
             exit()
         elif user_choice.lower()=="s":
             print "skipping..."
-        elif type(user_choice) is int:
-            if sub_dict.get(user_choice,False) is not False:
-                download_subtitle(sub_dict[user_choice])
-            else:
-                print "Invalid input only subtitle choices from {} to {} are available".format(1,count)
         else:
             print "Invalid input"
 
 
 
-def auto_download(subtitles_list):
+def auto_download(subtitles_list, ep_info):
+    """
+    episode_info:
+    {u'mimetype': u'video/x-flv', u'episodeNumber': 11, u'container': u'flv',
+    u'title': u'Adventures in Babysitting', u'series': u'Supernatural',
+    u'type': u'episode', u'season': 7, u'filename':<full file path>}
+    """
+    if len(subtitles_list)<2:
+        print "Only one subtitle found, this may be wrong one..."
+        download_subtitle(subtitles_list[0])
+
+    possible_matches=[]
+    best_choice={"best":None,"downloads":0}
+
+    for subtitle in subtitles_list:
+        # if subtitle['SeriesSeason']==str(ep_info['season']) and \
+        #                 subtitle['SeriesEpisode']==str(ep_info['episodeNumber']):
+        #     # Subtitle is for same season and episode number, it's probably something we want
+        #     # Wrong subtitles in most cases don't have same season/episode numbers
+        #     # FIXME Yeah, this isn't working as described above too much false positives
+        #     possible_matches.append(subtitle)
+        #     print 'first if'
+        subtitle_title_name=subtitle['MovieName'].replace("'","").replace('"','').lower()
+        episode_title_name="{} {}".format(ep_info['series'].lower(),ep_info['title'].lower())
+        if subtitle_title_name==episode_title_name:
+            # Subtitle has same series name+episode name as our file.
+            possible_matches.append(subtitle)
+
+    for sub in possible_matches:
+        # print sub['SubFileName']
+        if int(sub["SubDownloadsCnt"])>best_choice["downloads"]:
+            best_choice["best"]=sub
+            best_choice["downloads"]=sub["SubDownloadsCnt"]
+    print best_choice["best"],best_choice["downloads"]
+    download_subtitle(best_choice["best"],ep_info)
     pass
 
 
-def download_subtitle(subtitle_info,output_url=None):
+def download_subtitle(subtitle_info,ep_info):
+    """
+    episode_info:
+    {u'mimetype': u'video/x-flv', u'episodeNumber': 11, u'container': u'flv',
+    u'title': u'Adventures in Babysitting', u'series': u'Supernatural',
+    u'type': u'episode', u'season': 7, u'filename':<full file path>}
+    """
     download_url=subtitle_info["SubDownloadLink"]
-    subtitle_name=subtitle_info["SubFileName"]
-    subtitle_name=subtitle_name if not output_url else output_url+"/"+subtitle_name
+    subtitle_name=os.path.basename(ep_info["filename"])
+    subtitle_name=subtitle_name if SUBFOLDER is None else SUBFOLDER+"/"+subtitle_name
+    print "Downloading from {} and saving as {}.srt ".format(download_url,subtitle_name)
     sub_zip_file = urllib2.urlopen(download_url)
     try:
         sub_gzip = gzip.GzipFile(fileobj=StringIO.StringIO(sub_zip_file.read()))
         subtitle_content = sub_gzip.read()
+        # TODO: Save subtitle as original filename.srt
+        # TODO: Add support for subfolder to save ot
         with open(subtitle_name + '.srt', 'wb') as subtitle_output:
             subtitle_output.write(subtitle_content)
+            # FIXME: This should be in try/except loop and notify of possible permission issues on fail
         print 'Done!'
     except:
-        print 'couldn\'t save subtitle, permissions issue?'
+        print "Couldn't save subtitle, permissions issue?"
     pass
 
 
 def get_hash(name):
     """
-    :param name:
-    :return:
+    :param name: File path for which to calculate hash
+    :return: Hash or None
     """
     try:
         longlongformat = 'q'  # long long
@@ -233,9 +279,7 @@ def get_hash(name):
     except IOError:
         return None
 
-
-if __name__ == '__main__':
-    """
+def main():
     valid_files = []
 
     parser = argparse.ArgumentParser()
@@ -247,6 +291,9 @@ if __name__ == '__main__':
                         help="Subtitle language, must be an ISO 639-1 Code i.e. (en,fr,de) Default English(en); Full list http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes")
     parser.add_argument("-t","--type", type=str,
                         help="Subtitle search type 'hash' or 'filename")
+
+    # TODO: Add argument for auto download
+    # TODO: Add argument for custom output folder
     args = parser.parse_args()
 
     directory = args.folder
@@ -275,9 +322,12 @@ if __name__ == '__main__':
             valid_files.append(directory + file_name + file_extension)
 
     find_and_download(valid_files)
-    """
+
+if __name__ == '__main__':
     # import guessit
+    # print guessit.guess_episode_info("/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv")
     # get_tests("/media/8C82817682816614/TV/The Office/Season 3/The Office (US) - [03x01] - Gay Witch Hunt.avi")
-    search_subtitles(
-        ["/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv"])
+    # search_subtitles(
+    #     ["/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv"])
+    search_subtitles(["/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv"])
     # get_tests("/media/8C82817682816614/TV/Sherlock/Season 2/Sherlock - [02x01] - A Scandal in Belgravia.flv")
