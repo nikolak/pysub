@@ -48,10 +48,11 @@ useragent = "ossubd"
 
 server = ServerProxy(opensub_domain)
 
-overwrite = False
+# overwrite = False
 hash_search = False
 AUTO_DOWNLOAD= False
 SUBFOLDER="Subs"
+
 def get_tests(file_name):
     session = server.LogIn("", "", sub_language, useragent)
     token = session["token"]
@@ -87,12 +88,12 @@ def search_subtitles(file_list):
         print "-"*50
         print 'Searching subtitle for "{0}" | ({1}/{2})'.format(os.path.basename(file_name), count, len(file_list))
 
-        if os.path.exists(file_name + '.srt'):
-            if overwrite:
-                print 'Subtitle exist, but new one will be downloaded'
-            else:
-                print 'Subtitle already exists, skipping'
-                do_download = False
+        # if os.path.exists(file_name + '.srt'):
+        #     if overwrite:
+        #         print 'Subtitle exist, but new one will be downloaded'
+        #     else:
+        #         print 'Subtitle already exists, skipping'
+        #         do_download = False
 
         if do_download and hash_search:
             current_hash = get_hash(file_name + file_extension)
@@ -138,7 +139,8 @@ def search_subtitles(file_list):
 
 def download_prompt(subtitles_list, episode_info):
     if AUTO_DOWNLOAD:
-        auto_download(subtitles_list)
+        auto_download(subtitles_list,episode_info)
+        return
     user_choice=""
     possible_choices=["a","q","s"]
     sub_dict={}
@@ -198,7 +200,7 @@ def auto_download(subtitles_list, ep_info):
         #                 subtitle['SeriesEpisode']==str(ep_info['episodeNumber']):
         #     # Subtitle is for same season and episode number, it's probably something we want
         #     # Wrong subtitles in most cases don't have same season/episode numbers
-        #     # FIXME Yeah, this isn't working as described above too much false positives
+        #     # FIXME: Yeah, this isn't working as described above; too much "false positives"
         #     possible_matches.append(subtitle)
         #     print 'first if'
         subtitle_title_name=subtitle['MovieName'].replace("'","").replace('"','').lower()
@@ -213,8 +215,10 @@ def auto_download(subtitles_list, ep_info):
             best_choice["best"]=sub
             best_choice["downloads"]=sub["SubDownloadsCnt"]
     print best_choice["best"],best_choice["downloads"]
-    download_subtitle(best_choice["best"],ep_info)
-    pass
+    if best_choice["best"] is not None:
+        download_subtitle(best_choice["best"],ep_info)
+    else:
+        print "Can't match subtitle..."
 
 
 def download_subtitle(subtitle_info,ep_info):
@@ -225,9 +229,15 @@ def download_subtitle(subtitle_info,ep_info):
     u'type': u'episode', u'season': 7, u'filename':<full file path>}
     """
     download_url=subtitle_info["SubDownloadLink"]
-    subtitle_name=os.path.basename(ep_info["filename"])
-    subtitle_name=subtitle_name if SUBFOLDER is None else SUBFOLDER+"/"+subtitle_name
+    subtitle_folder=os.path.dirname(ep_info['filename'])
+    subtitle_folder+="/" if SUBFOLDER is None else "/"+SUBFOLDER.replace("/","")+"/"
+    subtitle_name=subtitle_folder+os.path.basename(ep_info["filename"])
     print "Downloading from {} and saving as {}.srt ".format(download_url,subtitle_name)
+
+    if not os.path.isdir(subtitle_folder):
+        os.mkdir(subtitle_folder)
+        # TODO: Add exception handling, if we can't create folder we won't be able to save sub there (probably)
+
     sub_zip_file = urllib2.urlopen(download_url)
     try:
         sub_gzip = gzip.GzipFile(fileobj=StringIO.StringIO(sub_zip_file.read()))
@@ -279,55 +289,53 @@ def get_hash(name):
     except IOError:
         return None
 
-def main():
+if __name__ == '__main__':
+    # filename="/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv"
+    # search_subtitles([filename])
     valid_files = []
 
     parser = argparse.ArgumentParser()
     parser.add_argument("folder", type=str,
                         help="Folder which will be scanned for allowed video files, and subtitles for those files will be downloaded")
-    parser.add_argument("-o", "--overwrite", action="store_true",
-                        help="Downloads subtitle file even if subtitle with <video filename>.srt already exists; overwrites existing file")
+    parser.add_argument("-o", "--output", type=str,
+                         help="Subfolder to save subtitles to, relative to original video file path")
     parser.add_argument("-l", "--language", type=str,
-                        help="Subtitle language, must be an ISO 639-1 Code i.e. (en,fr,de) Default English(en); Full list http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes")
+                        help="Subtitle language, must be an ISO 639-1 Code i.e. (eng,fre,deu) Default English(eng); Full list http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes")
     parser.add_argument("-t","--type", type=str,
-                        help="Subtitle search type 'hash' or 'filename")
-
-    # TODO: Add argument for auto download
-    # TODO: Add argument for custom output folder
+                        help="Subtitle search type 'hash' or 'filename'")
+    parser.add_argument("-a","--auto", action="store_true",
+                        help="Auto download subtitles for all files without prompt (Overwrites subtitles with same filename)")
     args = parser.parse_args()
 
     directory = args.folder
-    if not directory.endswith('\\'):
-        directory += '\\'
-    if args.overwrite:
-        overwrite = True
-    if args.type=="hash":
-        hash_search=True
-    elif args.type=="filename":
-        hash_search=False
-    else:
-        print "Invalid search type 'hash' or 'filename' are available options\n defaulting to hash search"
+    if not directory.endswith('/'):
+        directory += '/'
+    if args.output:
+        SUBFOLDER=args.output
+    if args.type:
+        if args.type=="hash":
+            hash_search=True
+        elif args.type=="filename":
+            hash_search=False
+        else:
+            print "Invalid search type 'hash' or 'filename' are available options\n defaulting to hash search"
     if args.language:
-        if len(args.language) == 2:
+        if len(args.language) == 3:
             sub_language = args.language.lower()
         else:
             print 'Argument not  ISO 639-1 Code check this for list of valid codes http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes'
             sys.exit()
 
+    if args.auto:
+        AUTO_DOWNLOAD=True
+    print "Dir: {}, subfolder: {}, hash search type: {}, language: {}, auto download: {} ".format(
+        directory,SUBFOLDER,hash_search, sub_language, AUTO_DOWNLOAD
+    )
     names = os.listdir(directory)
 
     for name in names:
         file_name, file_extension = os.path.splitext(name)
-        if file_extension in allowed_file_ext:
+        if file_extension in FILE_EXT:
             valid_files.append(directory + file_name + file_extension)
 
-    find_and_download(valid_files)
-
-if __name__ == '__main__':
-    # import guessit
-    # print guessit.guess_episode_info("/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv")
-    # get_tests("/media/8C82817682816614/TV/The Office/Season 3/The Office (US) - [03x01] - Gay Witch Hunt.avi")
-    # search_subtitles(
-    #     ["/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv"])
-    search_subtitles(["/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv"])
-    # get_tests("/media/8C82817682816614/TV/Sherlock/Season 2/Sherlock - [02x01] - A Scandal in Belgravia.flv")
+    search_subtitles(valid_files)
