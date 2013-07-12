@@ -50,9 +50,10 @@ sub_language = 'eng'
 useragent = "ossubd"
 server = ServerProxy("http://api.opensubtitles.org/xml-rpc")
 
-hash_search = False
+# hash_search = True
 AUTO_DOWNLOAD = False
 SUBFOLDER = None
+MATCH_CUTOFF=0.75 # difflib ratio cutoff 0-1, 0- strings don't have anything in common, 1- strings are identical
 
 
 # noinspection PyBroadException
@@ -64,45 +65,47 @@ def search_subtitles(file_list):
     session = server.LogIn("", "", sub_language, useragent)
     token = session["token"]
     for file_name in file_list:
+        search_list=[]
         count += 1
         do_download = True
         file_name, file_extension = os.path.splitext(file_name)
         print "-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(os.path.basename(file_name),
                                                                           count, len(file_list))
-        if do_download and hash_search:
-            current_hash = get_hash(file_name + file_extension)
-            file_size = os.path.getsize(file_name + file_extension)
+        current_hash = get_hash(file_name + file_extension)
+        file_size = os.path.getsize(file_name + file_extension)
+        if current_hash is None:
+            print "Can't calculate hash for {}".format(file_name)
 
+        ep_info = guessit.guess_episode_info(file_name)
+        ep_info["filename"] = file_name
+        try:
+            tv_show = ep_info['series']
+            season = ep_info['season']
+            episode = ep_info['episodeNumber']
+            # todo: Construct query like this perhaps: array('query' => 'south park', 'season' => 1, 'episode' => 1, 'sublanguageid'=>'all'),
+            query_info="{} S{:02d}E{:02d}".format(tv_show, #TODO: season & episode redundant?
+                                                   int(season),
+                                                   int(episode),
+                                                   ).replace(" ","+")
+            search_list = [{'sublanguageid': sub_language,
+                            'query': query_info, #TODO: Replace with only tv_show name
+                            'moviehash': current_hash,
+                            'moviebytesize': str(file_size),
+                            'season':season, #TODO: Check if these two params work as intented
+                            'episode':episode}]
+        except KeyError:
+            print "Can't determine enough info about series/episode from the filename."
             if current_hash is None:
-                print "Can't calculate hash for {}".format(file_name)
-                do_download = False
-        elif do_download and not hash_search:
-            ep_info = guessit.guess_episode_info(file_name)
-            ep_info["filename"] = file_name
-            try:
-                tv_show = ep_info['series']
-                season = ep_info['season']
-                episode = ep_info['episodeNumber']
-                query_info = ("%s S%.2dE%.2d" % (tv_show,
-                                                 int(season),
-                                                 int(episode),)
-                ).replace(" ", "+")
-            except KeyError:
-                print "Can't determine enough info about series/episode from the filename."
+                print "Skipping subtitle..."
                 do_download = False
 
         if do_download:
-            if hash_search:
-                search_list = [
-                    {'sublanguageid': sub_language, 'moviehash': current_hash,
-                     'moviebytesize': str(file_size)}]
-            else:
-                search_list = [{
-                                   'sublanguageid': sub_language, 'query': query_info}]
-
-            # XXX: Debug stuff, remove later
             moviesList = server.SearchSubtitles(token, search_list)
-
+            with open("log.log","a") as log:#XXX: Debug stuff remove before git push
+                log.write(file_name+"\n")
+                log.write(search_list+"\n\n")
+                log.write(str(moviesList)+"\n")
+                log.write("-"*10+"\n")
             if moviesList["status"] != "200 OK":
                 print "Error searching for subtitles..."
             else:
@@ -127,10 +130,12 @@ def download_prompt(subtitles_list, episode_info):
     sub_dict = {}
     count = 1
     for subtitle in subtitles_list:
-        print "{}: {} | Downloads: {}".format(count,
-                                              subtitle["SubFileName"],
-                                              subtitle["SubDownloadsCnt"], )
-        sub_dict[count] = {"SubFileName": subtitle["SubFileName"],
+        sync=subtitle['MatchedBy']=="moviehash"
+        print "{}:{} {} | Downloads: {}".format(count,
+                                                "" if not sync else " [sync match]",
+                                                subtitle["SubFileName"],
+                                                subtitle["SubDownloadsCnt"], )
+        sub_dict[count] = {"SubFileName": subtitle["SubFileName"],#XXX: Why not sub_dict[count]=subtitle?
                            "SubDownloadLink": subtitle["SubDownloadLink"]}
         count += 1
     possible_choices.extend(sub_dict.keys())
@@ -173,6 +178,7 @@ def auto_download(subtitles_list, ep_info):
     u'title': u'Adventures in Babysitting', u'series': u'Supernatural',
     u'type': u'episode', u'season': 7, u'filename':<full file path>}
     """
+    # MatchedBy can be: moviehash, imdbid, tag, fulltext
 
     sequence = difflib.SequenceMatcher(None, "", "")
     possible_matches = []
@@ -181,24 +187,20 @@ def auto_download(subtitles_list, ep_info):
     for subtitle in subtitles_list:
         # Change title from i.e. "The Office (US) Dunder Mifflin Infinity" to
         # the office (us) dunder mifflin infinity
-        subtitle_title_name = subtitle['MovieName'].replace(
-            "'", "").replace('"', '').lower()
-        episode_title_name = "{} {}".format(ep_info[
-                                                'series'].lower(), ep_info['title'].lower())
-        # TV Show name and title are separate keys in ep_info dict, not like in
-        # sub dict
+        subtitle_title_name = subtitle['MovieName'].replace("'", "").replace('"', '').lower()
+        episode_title_name = "{} {}".format(ep_info['series'].lower(), ep_info['title'].lower())
+        # TV Show name and title are separate keys in ep_info dict, not like in sub dict
 
         sequence.set_seqs(subtitle_title_name, episode_title_name)
         if sequence.ratio() > 0.75:
             # Names match check if season/episode # match too
-            if str(ep_info['season']) == subtitle['SeriesSeason'] and \
+            if subtitle['MatchedBy']=="moviehash":
+                possible_matches.append(subtitle)
+            elif str(ep_info['season']) == subtitle['SeriesSeason'] and \
                             str(ep_info['episodeNumber']) == subtitle['SeriesEpisode']:
                 possible_matches.append(subtitle)
 
     for sub in possible_matches:
-        # Since only subs that have matching name and season/episode numbers get this far
-        # when choosing one of them to download I had best experience relying
-        # on download counts
         if int(sub["SubDownloadsCnt"]) > best_choice["downloads"]:
             best_choice["best"] = sub
             best_choice["downloads"] = sub["SubDownloadsCnt"]
@@ -223,13 +225,11 @@ def download_subtitle(subtitle_info, ep_info):
     subtitle_folder = os.path.dirname(ep_info['filename'])
     subtitle_folder += "/" if SUBFOLDER is None else "/" + SUBFOLDER.replace("/", "") + "/"
     subtitle_name = subtitle_folder + os.path.basename(ep_info["filename"])
-    subtitle_name += "." + subtitle_info[
-        "SubFormat"]  # .srt only on opensubtitles.com?
+    subtitle_name += "." + subtitle_info["SubFormat"]  # .srt only on opensubtitles.com?
 
     if not os.path.isdir(subtitle_folder):
         os.mkdir(subtitle_folder)
-        # TODO: Add exception handling, if we can't create folder we won't be
-        # able to save sub there (probably)
+        # TODO: Add exception handling, if we can't create folder we won't be able to save sub there (probably)
 
     # Not in try/except because this shouldn't ever fail, and if it does other subtitles
     # won't be downloaded too so ignoring it seems usless. letting it to raise error makes more sense
@@ -258,7 +258,7 @@ def get_hash(name):
         file_hash = filesize
 
         if filesize < 65536 * 2:
-            return "SizeError"
+            return None
 
         for x in range(65536 / bytesize):
             file_buffer = f.read(bytesize)
@@ -279,23 +279,18 @@ def get_hash(name):
     except IOError:
         return None
 
-
-def test():
-    pass
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("folder", type=str,
                         help="Folder which will be scanned for allowed video files, "
                              "and subtitles for those files will be downloaded")
-    parser.add_argument("-o", "--output", type=str,
+    parser.add_argument("-s", "--subfolder", type=str,
                         help="Subfolder to save subtitles to, relative to original video file path")
     parser.add_argument("-l", "--language", type=str,
                         help="Subtitle language, must be an ISO 639-1 Code i.e. (eng,fre,deu) Default English(eng); "
                              "Full list http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes")
-    parser.add_argument("-t", "--type", type=str,
-                        help="Subtitle search type 'hash' or 'filename'")
+    # parser.add_argument("-t", "--type", type=str,
+    #                     help="Subtitle search type 'hash' or 'filename'")
     parser.add_argument("-a", "--auto", action="store_true",
                         help="Auto download subtitles for all files without prompt "
                              "(Overwrites subtitles with same filename)")
@@ -305,15 +300,15 @@ if __name__ == '__main__':
     # TODO: Add support for single files
     if not directory.endswith('/'):
         directory += '/'
-    if args.output:
-        SUBFOLDER = args.output
-    if args.type:
-        if args.type == "hash":
-            hash_search = True
-        elif args.type == "filename":
-            hash_search = False
-        else:
-            print "Invalid search type 'hash' or 'filename' are available options -- defaulting to hash search"
+    if args.subfolder:
+        SUBFOLDER = args.subfolder
+    # if args.type:
+    #     if args.type == "hash":
+    #         hash_search = True
+    #     elif args.type == "filename":
+    #         hash_search = False
+    #     else:
+    #         print "Invalid search type 'hash' or 'filename' are available options -- defaulting to hash search"
     if args.language:
         if len(args.language) == 3:
             sub_language = args.language.lower()
@@ -323,8 +318,8 @@ if __name__ == '__main__':
 
     if args.auto:
         AUTO_DOWNLOAD = True
-    print "Dir: {}, subfolder: {}, hash search type: {}, language: {}, auto download: {} ".format(
-        directory, SUBFOLDER, hash_search, sub_language, AUTO_DOWNLOAD
+    print "Dir: {}, subfolder: {}, language: {}, auto download: {} ".format(
+        directory, SUBFOLDER, sub_language, AUTO_DOWNLOAD
     )
     valid_files = [directory + name for name in os.listdir(
         directory) if os.path.splitext(name)[1] in FILE_EXT]
