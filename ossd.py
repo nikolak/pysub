@@ -210,35 +210,36 @@ def auto_download(subtitles_list, ep_info):
     u'title': u'Adventures in Babysitting', u'series': u'Supernatural',
     u'type': u'episode', u'season': 7, u'filename':<full file path>}
     """
-    if len(subtitles_list) < 2:
-        print "Only one subtitle found, this may be wrong one..."
-        download_subtitle(subtitles_list[0])
+    # if len(subtitles_list) < 2:
+    #     print "Only one subtitle found, this may be wrong one..."
+    #     download_subtitle(subtitles_list[0])
 
+    sequence=difflib.SequenceMatcher(None,"","")
     possible_matches = []
     best_choice = {"best": None, "downloads": 0}
-    sequence=difflib.SequenceMatcher(None,"","")
+
     for subtitle in subtitles_list:
-        # TODO: Check how much info from subtitle matches the one using guessit; (using difflib?)
-        # if subtitle['SeriesSeason']==str(ep_info['season']) and \
-        #                 subtitle['SeriesEpisode']==str(ep_info['episodeNumber']):
-        #     # Subtitle is for same season and episode number, it's probably something we want
-        #     # Wrong subtitles in most cases don't have same season/episode numbers
-        #     # FIXME: Yeah, this isn't working as described above; too much "false positives"
-        #     possible_matches.append(subtitle)
-        #     print 'first if'
+        #Change title from i.e. "The Office (US) Dunder Mifflin Infinity" to
+        # the office (us) dunder mifflin infinity
         subtitle_title_name = subtitle['MovieName'].replace("'", "").replace('"', '').lower()
         episode_title_name = "{} {}".format(ep_info['series'].lower(), ep_info['title'].lower())
+        # TV Show name and title are separate keys in ep_info dict, not like in sub dict
+
         sequence.set_seqs(subtitle_title_name,episode_title_name)
-        print subtitle_title_name,episode_title_name,sequence.ratio()
+        # print subtitle_title_name,episode_title_name,sequence.ratio()
         if sequence.ratio()>0.75:
-            possible_matches.append(subtitle)
+            #Names match check if season/episode # match too
+            if str(ep_info['season'])==subtitle['SeriesSeason'] and\
+                str(ep_info['episodeNumber'])==subtitle['SeriesEpisode']:
+                possible_matches.append(subtitle)
 
     for sub in possible_matches:
-        # print sub['SubFileName']
+        # Since only subs that have matching name and season/episode numbers get this far
+        # when choosing one of them to download I had best experience relying on download counts
         if int(sub["SubDownloadsCnt"]) > best_choice["downloads"]:
             best_choice["best"] = sub
             best_choice["downloads"] = sub["SubDownloadsCnt"]
-    # print best_choice["best"], best_choice["downloads"]
+    print best_choice["best"]["SubFileName"], best_choice["downloads"]
     if best_choice["best"] is not None:
         download_subtitle(best_choice["best"], ep_info)
     else:
@@ -257,22 +258,21 @@ def download_subtitle(subtitle_info, ep_info):
     subtitle_folder = os.path.dirname(ep_info['filename'])
     subtitle_folder += "/" if SUBFOLDER is None else "/" + SUBFOLDER.replace("/", "") + "/"
     subtitle_name = subtitle_folder + os.path.basename(ep_info["filename"])
+    subtitle_name+="."+subtitle_info["SubFormat"] #.srt only on opensubtitles.com?
     # print "Downloading from {} and saving as {}.srt ".format(download_url, subtitle_name)
 
     if not os.path.isdir(subtitle_folder):
         os.mkdir(subtitle_folder)
         # TODO: Add exception handling, if we can't create folder we won't be able to save sub there (probably)
 
+    # Not in try/except because this shouldn't ever fail, and if it does other subtitles
+    # won't be downloaded too so ignoring it seems usless. letting it to raise error makes more sense
     sub_zip_file = urllib2.urlopen(download_url)
+    sub_gzip = gzip.GzipFile(fileobj=StringIO.StringIO(sub_zip_file.read()))
+    subtitle_content = sub_gzip.read()
     try:
-        sub_gzip = gzip.GzipFile(fileobj=StringIO.StringIO(sub_zip_file.read()))
-        subtitle_content = sub_gzip.read()
-        # TODO: Save subtitle as original filename.srt
-        # TODO: Add support for subfolder to save ot
-        with open(subtitle_name + '.srt', 'wb') as subtitle_output:
+        with open(subtitle_name, 'wb') as subtitle_output:
             subtitle_output.write(subtitle_content)
-            # FIXME: This should be in try/except loop and notify of possible permission issues on fail
-        print 'Done!'
     except:
         print "Couldn't save subtitle, permissions issue?"
     pass
