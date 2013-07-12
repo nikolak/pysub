@@ -201,6 +201,7 @@ def auto_download(subtitles_list, ep_info):
                 possible_matches.append(subtitle)
 
     for sub in possible_matches:
+        #TODO: Assume best match is the one matching movieHash and download it
         if int(sub["SubDownloadsCnt"]) > best_choice["downloads"]:
             best_choice["best"] = sub
             best_choice["downloads"] = sub["SubDownloadsCnt"]
