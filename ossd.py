@@ -58,30 +58,6 @@ SUBFOLDER = "Subs"
 
 OFFLINE_TESTING=True
 
-# def get_tests(file_name):
-#     """
-#
-#     :param file_name:
-#     """
-#     session = server.LogIn("", "", sub_language, useragent)
-#     token = session["token"]
-#     ep_info = guessit.guess_episode_info(file_name)
-#     tv_show = ep_info['series']
-#     season = ep_info['season']
-#     episode = ep_info['episodeNumber']
-#     print ep_info
-#     query_info = ("%s S%.2dE%.2d" % (tv_show,
-#                                      int(season),
-#                                      int(episode),)
-#     ).replace(" ", "+")
-#     searchlist = [{'sublanguageid': sub_language, 'query': query_info}]
-#     moviesList = server.SearchSubtitles(token, searchlist)
-#     with open("query.log", "a") as q:
-#         q.write(file_name + "\n")
-#         q.write(str(moviesList) + "\n")
-#         q.write("\n\n\n")
-#
-
 # noinspection PyBroadException
 def search_subtitles(file_list):
     """
@@ -322,9 +298,9 @@ def test():
 if __name__ == '__main__':
     # filename="/media/8C82817682816614/TV/Supernatural/Season 7/Supernatural - [07x11] - Adventures in Babysitting.flv"
     # search_subtitles([filename])
-    test()
-    exit()
-    valid_files = []
+    # test()
+    # exit()
+    # valid_files = []
 
     parser = argparse.ArgumentParser()
     parser.add_argument("folder", type=str,
@@ -363,11 +339,11 @@ if __name__ == '__main__':
     print "Dir: {}, subfolder: {}, hash search type: {}, language: {}, auto download: {} ".format(
         directory, SUBFOLDER, hash_search, sub_language, AUTO_DOWNLOAD
     )
-    names = os.listdir(directory)
+    # names = os.listdir(directory)
+    valid_files=[directory+name for name in os.listdir(directory) if os.path.splitext(name)[1] in FILE_EXT]
 
-    for name in names:
-        file_name, file_extension = os.path.splitext(name)
-        if file_extension in FILE_EXT:
-            valid_files.append(directory + file_name + file_extension)
-
-    search_subtitles(valid_files)
+    # for name in names:
+    #     file_name, file_extension = os.path.splitext(name)
+    #     if file_extension in FILE_EXT:
+    #         valid_files.append(directory + file_name + file_extension)
+    # search_subtitles(valid_files)
