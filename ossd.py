@@ -1,24 +1,21 @@
-# Copyright (C) 2012, Nikola Kovcevic <nikolak@outlook.com>
+#!/usr/bin/env python
 
-# Permission is hereby granted, free of charge, to any person obtaining a copy of
-# this software and associated documentation files (the "Software"), to deal in
-# the Software without restriction, including without limitation the rights to
-# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-# of the Software, and to permit persons to whom the Software is furnished to do so,
-# subject to the following conditions:
+# Copyright (C) 2013  Nikola Kovacevic
 
-# The above copyright notice and this permission notice shall be included
-# in all copies or substantial portions of the Software.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-# PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT
-# OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-# OTHER DEALINGS IN THE SOFTWARE.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import sys
 import gzip
 import struct
 import difflib
@@ -33,7 +30,7 @@ try:
     # Probably not needed, episode name/season/episode could be
     # extracted with regex
 except ImportError:
-    print "Can't import guessit module, only subtitle searches based on file hashes can be preformed"
+    print "Can't import guessit module, only searches using file hash will be performed"
 
 FILE_EXT = [
     '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx', '.avchd', '.avi',
@@ -51,10 +48,17 @@ useragent = "ossubd"
 server = ServerProxy("http://api.opensubtitles.org/xml-rpc")
 
 # hash_search = True
-AUTO_DOWNLOAD = False
+AUTO_DOWNLOAD = True
 SUBFOLDER = None
-MATCH_CUTOFF=0.75 # difflib ratio cutoff 0-1, 0- strings don't have anything in common, 1- strings are identical
+MATCH_CUTOFF = 0.75 # difflib ratio cutoff float range[0,1],
+# 0- strings don't have anything in common, 1- strings are identical
 
+slashes_type="" # \ -windows; / - unix
+
+if os.name=="nt":
+    slashes_type="\\"
+else: # Assume unix like paths
+    slashes_type="/"
 
 # noinspection PyBroadException
 def search_subtitles(file_list):
@@ -62,14 +66,17 @@ def search_subtitles(file_list):
     :param file_list: list of video files(with full path) for which to search subtitles
     """
     count = 0
-    session = server.LogIn("", "", sub_language, useragent)
+    try:
+        session = server.LogIn("", "", sub_language, useragent)
+    except:
+        print "Can't log in to opensubtitles API, try again later..."
+        exit()
     token = session["token"]
     for file_name in file_list:
-        search_list=[]
         count += 1
         do_download = True
         file_name, file_extension = os.path.splitext(file_name)
-        print "-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(os.path.basename(file_name),
+        print "-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(os.path.basename(file_name) + file_extension,
                                                                           count, len(file_list))
         current_hash = get_hash(file_name + file_extension)
         file_size = os.path.getsize(file_name + file_extension)
@@ -78,34 +85,38 @@ def search_subtitles(file_list):
 
         ep_info = guessit.guess_episode_info(file_name)
         ep_info["filename"] = file_name
+        ep_info['movieHash'] = current_hash
         try:
             tv_show = ep_info['series']
             season = ep_info['season']
             episode = ep_info['episodeNumber']
             # todo: Construct query like this perhaps: array('query' => 'south park', 'season' => 1, 'episode' => 1, 'sublanguageid'=>'all'),
-            query_info="{} S{:02d}E{:02d}".format(tv_show, #TODO: season & episode redundant?
-                                                   int(season),
-                                                   int(episode),
-                                                   ).replace(" ","+")
+            query_info = "{} S{:02d}E{:02d}".format(tv_show, #TODO: season & episode redundant?
+                                                    int(season),
+                                                    int(episode),
+            ).replace(" ", "+")
+
+
+            # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
+            # If you define imdbid, then moviehash, moviebytesize and query is ignored.
+            # If you define query, then moviehash, moviebytesize and imdbid is ignored.
             search_list = [{'sublanguageid': sub_language,
                             'query': query_info, #TODO: Replace with only tv_show name
-                            'moviehash': current_hash,
-                            'moviebytesize': str(file_size),
-                            'season':season, #TODO: Check if these two params work as intented
-                            'episode':episode}]
+                            'season': season, # XXX: Check if this improves results.
+                            'episode': episode}]
         except KeyError:
             print "Can't determine enough info about series/episode from the filename."
-            if current_hash is None:
-                print "Skipping subtitle..."
-                do_download = False
+            do_download = False
 
         if do_download:
             moviesList = server.SearchSubtitles(token, search_list)
-            with open("log.log","a") as log:#XXX: Debug stuff remove before git push
-                log.write(file_name+"\n")
-                log.write(search_list+"\n\n")
-                log.write(str(moviesList)+"\n")
-                log.write("-"*10+"\n")
+            print "Do download"
+            #XXX: Debug stuff remove before git push
+            with open("log.log", "a") as log:
+                log.write(file_name + "\n")
+                log.write(str(search_list) + "\n\n")
+                log.write(str(moviesList) + "\n\n")
+                log.write("-" * 10 + "\n")
             if moviesList["status"] != "200 OK":
                 print "Error searching for subtitles..."
             else:
@@ -116,27 +127,27 @@ def search_subtitles(file_list):
 
 
 # noinspection PyBroadException
-def download_prompt(subtitles_list, episode_info):
+def download_prompt(subtitles_list, ep_info):
     """
     :param subtitles_list: list containing dicts of each subtitle returned from opensubtitles api
     :param episode_info:  dict containing episode info most important -- 'series' - tv show name and 'title' -ep title
     :return: Nothing
     """
     if AUTO_DOWNLOAD:
-        auto_download(subtitles_list, episode_info)
+        auto_download(subtitles_list, ep_info)
         return
     user_choice = ""
     possible_choices = ["a", "q", "s"]
     sub_dict = {}
     count = 1
+
     for subtitle in subtitles_list:
-        sync=subtitle['MatchedBy']=="moviehash"
+        sync = ep_info['movieHash'] == subtitle['MovieHash']
         print "{}:{} {} | Downloads: {}".format(count,
                                                 "" if not sync else " [sync match]",
                                                 subtitle["SubFileName"],
                                                 subtitle["SubDownloadsCnt"], )
-        sub_dict[count] = {"SubFileName": subtitle["SubFileName"],#XXX: Why not sub_dict[count]=subtitle?
-                           "SubDownloadLink": subtitle["SubDownloadLink"]}
+        sub_dict[count] = subtitle
         count += 1
     possible_choices.extend(sub_dict.keys())
 
@@ -151,21 +162,24 @@ def download_prompt(subtitles_list, episode_info):
 
         if user_choice not in possible_choices:
             print "invalid input"
-    if user_choice in possible_choices:  # if needed?
-        if type(user_choice) is int:
-            if sub_dict.get(user_choice, False) is not False:
-                download_subtitle(sub_dict[user_choice], episode_info)
-            else:
-                print "Invalid input only subtitle choices from {} to {} are available".format(1, count)
-        elif user_choice.lower() == "a":
-            auto_download(subtitles_list, episode_info)
-        elif user_choice.lower() == "q":
-            print 'Quitting'
-            exit()
-        elif user_choice.lower() == "s":
-            print "skipping..."
+
+    if type(user_choice) is int:
+        if sub_dict.get(user_choice, False) is not False:
+            download_subtitle(sub_dict[user_choice], ep_info)
         else:
-            print "Invalid input"
+            print "Invalid input only subtitle choices from {} to {} are available".format(1, count)
+
+    elif user_choice.lower() == "a":
+        auto_download(subtitles_list, ep_info)
+
+    elif user_choice.lower() == "q":
+        print 'Quitting'
+        exit()
+
+    elif user_choice.lower() == "s":
+        print "skipping..."
+    else:
+        print "Invalid input"
 
 
 # noinspection PyArgumentList
@@ -192,19 +206,22 @@ def auto_download(subtitles_list, ep_info):
         # TV Show name and title are separate keys in ep_info dict, not like in sub dict
 
         sequence.set_seqs(subtitle_title_name, episode_title_name)
-        if sequence.ratio() > 0.75:
-            # Names match check if season/episode # match too
-            if subtitle['MatchedBy']=="moviehash":
+        if sequence.ratio() > MATCH_CUTOFF:
+            if ep_info['movieHash'] == subtitle['MovieHash']:
                 possible_matches.append(subtitle)
+            # Names match; check if season/episode # match too
             elif str(ep_info['season']) == subtitle['SeriesSeason'] and \
                             str(ep_info['episodeNumber']) == subtitle['SeriesEpisode']:
                 possible_matches.append(subtitle)
 
     for sub in possible_matches:
-        #TODO: Assume best match is the one matching movieHash and download it
         if int(sub["SubDownloadsCnt"]) > best_choice["downloads"]:
             best_choice["best"] = sub
             best_choice["downloads"] = sub["SubDownloadsCnt"]
+        elif sub['MovieHash'] == ep_info['movieHash']:
+            best_choice['best'] = sub
+            best_choice['downloads'] = "Movie hash"
+            break
     print best_choice["best"]["SubFileName"], best_choice["downloads"]
     if best_choice["best"] is not None:
         download_subtitle(best_choice["best"], ep_info)
@@ -224,9 +241,9 @@ def download_subtitle(subtitle_info, ep_info):
     """
     download_url = subtitle_info["SubDownloadLink"]
     subtitle_folder = os.path.dirname(ep_info['filename'])
-    subtitle_folder += "/" if SUBFOLDER is None else "/" + SUBFOLDER.replace("/", "") + "/"
+    subtitle_folder += slashes_type if SUBFOLDER is None else slashes_type + SUBFOLDER + slashes_type
     subtitle_name = subtitle_folder + os.path.basename(ep_info["filename"])
-    subtitle_name += "." + subtitle_info["SubFormat"]  # .srt only on opensubtitles.com?
+    subtitle_name += "." + subtitle_info["SubFormat"]  # .srt only on opensubtitles?
 
     if not os.path.isdir(subtitle_folder):
         os.mkdir(subtitle_folder)
@@ -280,8 +297,9 @@ def get_hash(name):
     except IOError:
         return None
 
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Subtitle downloader for TV Shows')
     parser.add_argument("folder", type=str,
                         help="Folder which will be scanned for allowed video files, "
                              "and subtitles for those files will be downloaded")
@@ -290,39 +308,35 @@ if __name__ == '__main__':
     parser.add_argument("-l", "--language", type=str,
                         help="Subtitle language, must be an ISO 639-1 Code i.e. (eng,fre,deu) Default English(eng); "
                              "Full list http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes")
-    # parser.add_argument("-t", "--type", type=str,
-    #                     help="Subtitle search type 'hash' or 'filename'")
     parser.add_argument("-a", "--auto", action="store_true",
                         help="Auto download subtitles for all files without prompt "
                              "(Overwrites subtitles with same filename)")
     args = parser.parse_args()
 
     directory = args.folder
-    # TODO: Add support for single files
-    if not directory.endswith('/'):
-        directory += '/'
+    if os.path.isfile(directory):
+        valid_files = [directory] # single file, although its name is directory
+    elif os.path.isdir(directory):
+        directory += slashes_type if not directory.endswith(slashes_type) else ""
+
+        valid_files = [directory + name for name in os.listdir(directory)
+                       if os.path.splitext(name)[1] in FILE_EXT]
+    else:
+        "{} is not a valid file or directory".format(directory)
     if args.subfolder:
         SUBFOLDER = args.subfolder
-    # if args.type:
-    #     if args.type == "hash":
-    #         hash_search = True
-    #     elif args.type == "filename":
-    #         hash_search = False
-    #     else:
-    #         print "Invalid search type 'hash' or 'filename' are available options -- defaulting to hash search"
+        SUBFOLDER=SUBFOLDER.replace(slashes_type,"")
     if args.language:
         if len(args.language) == 3:
             sub_language = args.language.lower()
         else:
-            print 'Argument not  ISO 639-1 Code check this for list of valid codes http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes'
-            sys.exit()
+            print 'Argument not ISO 639-1 Code check this for list of valid codes' \
+                  ' http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes'
+            exit()
 
     if args.auto:
         AUTO_DOWNLOAD = True
-    print "Dir: {}, subfolder: {}, language: {}, auto download: {} ".format(
-        directory, SUBFOLDER, sub_language, AUTO_DOWNLOAD
-    )
-    valid_files = [directory + name for name in os.listdir(
-        directory) if os.path.splitext(name)[1] in FILE_EXT]
 
-    search_subtitles(valid_files)
+    print "f: {}\nsubfolder: {}\nl: {}\na:{}".format(directory,SUBFOLDER,sub_language,AUTO_DOWNLOAD)
+    print valid_files
+    # search_subtitles(valid_files)
