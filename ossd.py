@@ -152,22 +152,6 @@ def search_subtitles(file_list):
                 for item in hash_results:
                     subtitles_list.append(item)
 
-            #XXX: Debug stuff remove before git push
-            with open("log.log", "a") as log:
-                log.write("\n\n\n"+file_name + "\n -- QUERY")
-                log.write(str(file_search_query) + "\n\n")
-                log.write(str(query_results) + "\n\n")
-                log.write("-" * 10 + "\n")
-
-                log.write(file_name + "\n -- HASH")
-                log.write(str(hash_search_query) + "\n\n")
-                log.write(str(hash_results) + "\n\n")
-                log.write("-" * 10 + "\n")
-
-                log.write("*" * 75 + "\n\n\n")
-                log.write("subtitles_list:\n\n")
-                log.write(str(subtitles_list))
-
             download_prompt(subtitles_list, ep_info)
 
 
