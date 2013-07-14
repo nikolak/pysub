@@ -23,9 +23,10 @@ import urllib2# +import urllib.request, urllib.error, urllib.parse
 import argparse
 import StringIO# +import io
 from xmlrpclib import ServerProxy# +from xmlrpc.client import ServerProxy
+
 try:
     # noinspection PyUnresolvedReferences
-    import guessit  # TODO: Replace with regex
+    import guessit
 except ImportError:
     print "Can't import guessit module, only searches using file hash will be performed"
 
@@ -50,15 +51,16 @@ SUBFOLDER = None
 MATCH_CUTOFF = 0.75  # difflib ratio cutoff float range[0,1],
 # 0- strings don't have anything in common, 1- strings are identical
 
-slashes_type = "\\" if os.name == "nt" else "/"  # \ -windows; / - unix
+slashes_type = "\\" if os.name == "nt" else "/" # assume unix like path
+
 
 # noinspection PyBroadException
-
-
 def search_subtitles(file_list):
     """
     :param file_list: list of video files(with full path) for which to search subtitles
     """
+    #TODO: Check if user is over the download limit
+    #http://trac.opensubtitles.org/projects/opensubtitles/wiki/XMLRPC#ServerInfo
     count = 0
     try:
         session = server.LogIn("", "", sub_language, useragent)
@@ -68,24 +70,21 @@ def search_subtitles(file_list):
     token = session["token"]
     for file_name in file_list:
         count += 1
-        do_download = True
-        hash_search=True
-        query_search=True
-        query_results=None
-        hash_results=None
-        ep_info=None
+        ep_info = None
         file_name, file_extension = os.path.splitext(file_name)
         print "-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(os.path.basename(file_name) + file_extension,
                                                                           count, len(file_list))
-        current_hash = get_hash(file_name + file_extension)
         file_size = os.path.getsize(file_name + file_extension)
+        current_hash = get_hash(file_name + file_extension, file_size)
+
         if current_hash is None:
             print "Can't calculate hash for {}".format(file_name)
-            hash_search=False
+            hash_search = False
         else:
-            hash_search_query=[{"sublanguageid": sub_language,
-                                'moviehash':current_hash,
-                                'moviebytesize':file_size}]
+            hash_search_query = [{"sublanguageid": sub_language,
+                                  'moviehash': current_hash,
+                                  'moviebytesize': file_size}]
+            hash_search=True
 
         try:
             ep_info = guessit.guess_episode_info(file_name)
@@ -95,54 +94,57 @@ def search_subtitles(file_list):
             episode = ep_info['episodeNumber']
             # todo: Construct query like this perhaps: array('query' => 'south
             # park', 'season' => 1, 'episode' => 1, 'sublanguageid'=>'all'),
-            query_info = "{} S{:02d}E{:02d}".format(tv_show,  # TODO: season & episode redundant?
+            query_info = "{} S{:02d}E{:02d}".format(tv_show, # TODO: season & episode redundant?
                                                     int(season),
                                                     int(episode),
-                                                    ).replace(" ", "+")
+            ).replace(" ", "+")
 
             # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
             # If you define imdbid, then moviehash, moviebytesize and query is ignored.
             # If you define query, then moviehash, moviebytesize and imdbid is ignored.
             file_search_query = [{'sublanguageid': sub_language,
-                                'query': query_info,  # TODO: Replace with only tv_show name
-                                'season': season,  # XXX: Check if this improves results.
-                                'episode': episode}]
+                                  'query': query_info, # TODO: Replace with only tv_show name
+                                  'season': season, # XXX: Check if this improves results.
+                                  'episode': episode}]
+            query_search=True
         except KeyError:
             print "Can't determine enough info about series/episode from the filename."
             # do_download = False
-            query_search=False
+            query_search = False
 
         if query_search:
-            query_results=server.SearchSubtitles(token, file_search_query)
-            if query_results['status']!="200 OK":
+            query_results = server.SearchSubtitles(token, file_search_query)
+            if query_results['status'] != "200 OK":
                 print "Query search failed ", query_results['status']
+                query_results=None
             else:
                 if not query_results['data']:
                     print "Query search returned no results"
+                    query_results=None
                 else:
-                    query_results=query_results['data']
+                    query_results = query_results['data']
 
         if hash_search:
-            hash_results=server.SearchSubtitles(token, file_search_query)
-            if hash_results['status']!='200 OK':
+            hash_results = server.SearchSubtitles(token, file_search_query)
+            if hash_results['status'] != '200 OK':
                 print '"Hash search failed', hash_results['status']
+                hash_results=None
             else:
                 if not hash_results['data']:
                     print "Hash search returned no results"
+                    hash_results=None
                 else:
-                    hash_results=hash_results['data']
-                                #XXX: Debug stuff remove before git push
-            pass
+                    hash_results = hash_results['data']
+
 
         if query_search is False and hash_search is False:
-            do_download=False
+            do_download = False
             print "Couldn't find subtitles in {} for {}".format(sub_language, file_name)
-
-
+        else:
+            do_download=True
         if do_download:
-            # moviesList = server.SearchSubtitles(token, file_search_query)
             ep_info["filename"] = file_name
-            subtitles_list=[]
+            subtitles_list = []
             if query_results:# Subtitle results exist
                 for item in query_results:
                     subtitles_list.append(item)
@@ -150,9 +152,9 @@ def search_subtitles(file_list):
                 for item in hash_results:
                     subtitles_list.append(item)
 
-
+            #XXX: Debug stuff remove before git push
             with open("log.log", "a") as log:
-                log.write(file_name + "\n -- QUERY")
+                log.write("\n\n\n"+file_name + "\n -- QUERY")
                 log.write(str(file_search_query) + "\n\n")
                 log.write(str(query_results) + "\n\n")
                 log.write("-" * 10 + "\n")
@@ -162,20 +164,18 @@ def search_subtitles(file_list):
                 log.write(str(hash_results) + "\n\n")
                 log.write("-" * 10 + "\n")
 
-                log.write("*"*75+"\n\n\n")
+                log.write("*" * 75 + "\n\n\n")
                 log.write("subtitles_list:\n\n")
                 log.write(str(subtitles_list))
 
-            download_prompt(subtitles_list,ep_info)
-            pass
-
+            download_prompt(subtitles_list, ep_info)
 
 
 # noinspection PyBroadException
 def download_prompt(subtitles_list, ep_info):
     """
     :param subtitles_list: list containing dicts of each subtitle returned from opensubtitles api
-    :param episode_info:  dict containing episode info most important -- 'series' - tv show name and 'title' -ep title
+    :param ep_info:  dict containing episode info most important -- 'series' - tv show name and 'title' -ep title
     :return: Nothing
     """
     if AUTO_DOWNLOAD:
@@ -187,7 +187,7 @@ def download_prompt(subtitles_list, ep_info):
     count = 1
 
     for subtitle in subtitles_list:
-        sync = subtitle['MatchedBy']=='moviehash'
+        sync = subtitle['MatchedBy'] == 'moviehash'
         print "{}:{} {} | Downloads: {}".format(count,
                                                 "" if not sync else " [sync match]",
                                                 subtitle["SubFileName"],
@@ -197,13 +197,13 @@ def download_prompt(subtitles_list, ep_info):
     possible_choices.extend(sub_dict.keys())
 
     while user_choice not in possible_choices:
-        inp = raw_input("Enter subtitle # to download or 's' - skip this file,"
+        user_input = raw_input("Enter subtitle # to download or 's' - skip this file,"
                         " 'a' - auto download,"
                         " 'q' - quit\n>>>")
         try:  # Faster than .isdigit()
-            user_choice = int(inp)
+            user_choice = int(user_input)
         except:
-            user_choice = inp.lower()
+            user_choice = user_input.lower()
 
         if user_choice not in possible_choices:
             print "invalid input"
@@ -245,21 +245,25 @@ def auto_download(subtitles_list, ep_info):
 
     for subtitle in subtitles_list:
         # Change title from i.e. "The Office (US) Dunder Mifflin Infinity" to the office (us) dunder mifflin infinity
-        subtitle_title_name = subtitle['MovieName'].replace("'", "").replace('"', '').lower()
-        episode_title_name = "{} {}".format(ep_info['series'].lower(), ep_info['title'].lower())
+        try:
+            subtitle_title_name = subtitle['MovieName'].replace("'", "").replace('"', '').lower()
+            episode_title_name = "{} {}".format(ep_info['series'].lower(), ep_info['title'].lower())
+        except KeyError:
+            subtitle_title_name=0
+            episode_title_name=1
         # TV Show name and title are separate keys in ep_info dict, not like in sub dict
 
         sequence.set_seqs(subtitle_title_name, episode_title_name)
         if sequence.ratio() > MATCH_CUTOFF:
-            if subtitle['MatchedBy']=='moviehash':
-                possible_matches.append(subtitle)
-            # Names match; check if season/episode # match too
-            elif str(ep_info['season']) == subtitle['SeriesSeason'] and \
-                    str(ep_info['episodeNumber']) == subtitle['SeriesEpisode']:
+            # Names of series title and episode names match enough, should be valid subtitle
+            possible_matches.append(subtitle)
+
+        if subtitle['MatchedBy'] == 'moviehash':
                 possible_matches.append(subtitle)
 
+
     for sub in possible_matches:
-        if sub['MatchedBy']=='moviehash':
+        if sub['MatchedBy'] == 'moviehash':
             best_choice['best'] = sub
             best_choice['downloads'] = "Movie hash"
             break
@@ -307,22 +311,20 @@ def download_subtitle(subtitle_info, ep_info):
         print "Couldn't save subtitle, permissions issue?"
 
 
-def get_hash(name):
+def get_hash(file_name, file_size):
     """
-    :param name: File path for which to calculate hash
+    :param file_name: File path for which to calculate hash
     :return: Hash or None
     """
+    if file_size < 65536 * 2:
+        return None
     try:
         longlongformat = 'q'  # long long
         bytesize = struct.calcsize(longlongformat)
 
-        f = open(name, "rb")
+        f = open(file_name, "rb")
 
-        filesize = os.path.getsize(name)
-        file_hash = filesize
-
-        if filesize < 65536 * 2:
-            return None
+        file_hash = file_size
 
         for x in range(65536 / bytesize):
             file_buffer = f.read(bytesize)
@@ -330,7 +332,7 @@ def get_hash(name):
             file_hash += l_value
             file_hash &= 0xFFFFFFFFFFFFFFFF  # to remain as 64bit number
 
-        f.seek(max(0, filesize - 65536), 0)
+        f.seek(max(0, file_size - 65536), 0)
         for x in range(65536 / bytesize):
             file_buffer = f.read(bytesize)
             (l_value,) = struct.unpack(longlongformat, file_buffer)
@@ -382,6 +384,6 @@ if __name__ == '__main__':
     if args.auto:
         AUTO_DOWNLOAD = True
 
-    print "f: {}\nsubfolder: {}\nl: {}\na:{}".format(directory, SUBFOLDER, sub_language, AUTO_DOWNLOAD)
-    print valid_files
+    # print "f: {}\nsubfolder: {}\nl: {}\na:{}".format(directory, SUBFOLDER, sub_language, AUTO_DOWNLOAD)
+    # print valid_files
     search_subtitles(valid_files)
