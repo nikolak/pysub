@@ -21,56 +21,28 @@ Subtitles are in `srt` format and are saved as `<original video filename>.srt` i
 
 Optionally can overwrite already existing subtitle files, if they're the same name as video file.
 
-usage: `ossd.py [-h] [-o OUTPUT] [-l LANGUAGE] [-t TYPE] [-a] folder`
+----
 
-**positional arguments:**
-  `folder`                              *Folder which will be scanned for allowed video files and subtitles for those files will be downloaded*
+usage: `ossd.py [-h] [-s SUBFOLDER] [-l LANGUAGE] [-a] folder`
 
-**optional arguments:**
-  `-h, --help`                          *show this help message and exit*
+Subtitle downloader for TV Shows
 
-  `-o OUTPUT, --output OUTPUT`          *Subfolder to save subtitles to, relative to original video file path*
+*positional arguments:*
 
-  `-l LANGUAGE, --language LANGUAGE`    *Subtitle language, must be an ISO 639-1 Code i.e. (eng,fre,deu) Default English(eng); Full list http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes*
+  `folder`                - *Folder which will be scanned for allowed video files, and subtitles for those files will be downloaded*
 
-  `-t TYPE, --type TYPE`                *Subtitle search type 'hash' or 'filename'*
+*optional arguments:*
 
-  `-a, --auto`                          *Auto download subtitles for all files without prompt (Overwrites subtitles with same filename)*
+  `-h, --help`                          - *show this help message and exit*
+
+  `-s SUBFOLDER, --subfolder SUBFOLDER` - *Subfolder to save subtitles to, relative to original video file path*
+
+  `-l LANGUAGE, --language LANGUAGE`    - *Subtitle language, must be an ISO 639-1 Code i.e.(eng,fre,deu) Default English(eng)*
+
+  `-a, --auto`                          - *Auto download subtitles for all files without prompt (Overwrites subtitles with same filename)*
 
 
 Usage examples
 --------
 
-Search subtitles based on filename and save them to 'Subs' subdirectory in the same folder as files.
-`$ python ossd.py -o Subs -t filename "/media/8C82817682816614/TV/The Office/Season 4"`
-
-
-Output for the  first file:
-
-
---------------------------------------------------
-Searching subtitle for "The Office (US) - [04x01] Fun Run" | (1/14)
-1: the.office.s04e01.hdtv.xvid-xor.[VTV].srt | Downloads: 13159
-2: the.office.s04e01.dvdrip.xvid-orpheus.EN.srt | Downloads: 7909
-Enter subtitle # to download or 's' - skip this file, 'a' - auto download, 'q' - quit
->>1
-Done!
-
-----
-
-
-Search subtitles based on filename and save them to 'Subs' subdirectory in the same folder as files, don't prompt user, auto download.
-`$ python ossd.py -o Subs -t filename "/media/8C82817682816614/TV/IT Crowd/Season 4" -a`
-
-
-Output for the first file:
-
-
---------------------------------------------------
-Searching subtitle for "The IT Crowd - [04x03] - Something Happened" | (1/4)
-Done!
-
-**Note:** The output might not be 100% the same as above due to some changes in the code, but in essence it should show same type of message.
-
-
-
+TODO: Add usage examples
