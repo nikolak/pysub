@@ -45,4 +45,26 @@ Subtitle downloader for TV Shows
 Usage examples
 --------
 
-TODO: Add usage examples
+Auto download subtiles for all video files in the specified folder and save them to "Subs" subfolder
+
+
+`$ python ossd.py -a -s Subs "/TV/The Office/Season 6"`
+--------------------------------------------------
+Searching subtitle for "The Office (US) - [06x01] - Gossip.flv" | (1/12)
+Downloaded subtitle...
+--------------------------------------------------
+Searching subtitle for "The Office (US) - [06x02] - The Meeting.flv" | (2/12)
+Can't match subtitle...
+
+Search and ask which subtitle to download for specific file, subtitle will be saved in same directory as video file.
+
+
+`$ python ossd.py "/The Office/Season 4/The Office (US) - Dunder Mifflin Infinity.flv"`
+1: the.office.s04e02.dvdrip.xvid-orpheus.EN.srt | Downloads: 9338
+2: The Office (US) - 04x02 - Dunder Mifflin infinity.srt | Downloads: 3800
+3: the.office.402.pro.cap.EN.srt | Downloads: 1841
+4: The.Office.US.S04E02.Dunder.Mifflin.Infinity.HDTV.XviD-XOR.srt | Downloads: 1242
+5: The.Office.S04E02.Dunder Mifflin Infinity.720p.WEB-DL.AAC2.0.AVC-CtrlHD.srt | Downloads: 139
+6: Hannah.Montana.S04E02.iNT.HDTV.XviD-OSHT.srt | Downloads: 171
+Enter subtitle # to download or 's' - skip this file, 'a' - auto download, 'q' - quit
+>>>
