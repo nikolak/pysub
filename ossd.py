@@ -15,20 +15,30 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+from sys import version_info
+
 import os
 import gzip
 import struct
 import difflib
-import urllib2# +import urllib.request, urllib.error, urllib.parse
 import argparse
-import StringIO# +import io
-from xmlrpclib import ServerProxy# +from xmlrpc.client import ServerProxy
+
+if version_info >= (3, 0):
+    import urllib.request as request
+    from io import StringIO
+    from xmlrpc.client import ServerProxy
+elif version_info>= (2, 7):
+    import urllib2 as request
+    from StringIO import StringIO
+    from xmlrpclib import ServerProxy
+else:
+    print("This script hasn't been tested on python versions lower than 2.7")
 
 try:
     # noinspection PyUnresolvedReferences
     import guessit
 except ImportError:
-    print "Can't import guessit module, only searches using file hash will be performed"
+    print("Can't import guessit module, only searches using file hash will be performed")
 
 FILE_EXT = [
     '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx', '.avchd', '.avi',
@@ -65,11 +75,11 @@ def search_subtitles(file_list):
     try:
         session = server.LogIn("", "", sub_language, useragent)
     except:
-        print "Error logging in to opensubtiles API."
+        print("Error logging in to opensubtiles API.")
         exit()
 
-    if session['status']!="200 OK":
-        print "Error logging in to opensubtiles API.",session['status']
+    if session['status'] != "200 OK":
+        print("Error logging in to opensubtiles API.", session['status'])
         exit()
     else:
         token = session["token"]
@@ -82,22 +92,22 @@ def search_subtitles(file_list):
         sub_path = os.path.dirname(file_path)
         sub_path += slashes_type if SUBFOLDER is None else slashes_type + SUBFOLDER + slashes_type
 
-        print "-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(file_name,
+        print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(file_name,
                                                                           count,
-                                                                          len(file_list))
+                                                                          len(file_list)))
 
         if os.path.exists(sub_path + os.path.splitext(file_name)[0] + ".srt") and not OVERWRITE:
             # FIXME: Only works for .srt subs
             # Maybe still make the search but check if file exists before downloading
             # or just download only srt subs
-            print "Subtitle already exist, skipping..."
+            print("Subtitle already exist, skipping...")
             continue
 
         file_size = os.path.getsize(file_path)
         current_hash = get_hash(file_path, file_size)
 
         if current_hash is None:
-            print "Can't calculate hash for {}".format(file_path)
+            print("Can't calculate hash for {}".format(file_path))
             hash_search = False
         else:
             hash_search_query = [{"sublanguageid": sub_language,
@@ -127,14 +137,14 @@ def search_subtitles(file_list):
                                   'episode': episode}]
             query_search = True
         except KeyError:
-            print "Can't determine enough info about series/episode from the filename."
+            print("Can't determine enough info about series/episode from the filename.")
             # do_download = False
             query_search = False
 
         if query_search:
             query_results = server.SearchSubtitles(token, file_search_query)
             if query_results['status'] != "200 OK":
-                print "Query search failed ", query_results['status']
+                print("Query search failed ", query_results['status'])
                 query_results = None
             else:
                 if not query_results['data']:
@@ -146,7 +156,7 @@ def search_subtitles(file_list):
         if hash_search:
             hash_results = server.SearchSubtitles(token, file_search_query)
             if hash_results['status'] != '200 OK':
-                print '"Hash search failed', hash_results['status']
+                print('"Hash search failed', hash_results['status'])
                 hash_results = None
             else:
                 if not hash_results['data']:
@@ -157,7 +167,7 @@ def search_subtitles(file_list):
 
         if query_search is False and hash_search is False:
             do_download = False
-            print "Couldn't find subtitles in {} for {}".format(sub_language, file_path)
+            print("Couldn't find subtitles in {} for {}".format(sub_language, file_path))
         else:
             do_download = True
         if do_download:
@@ -191,43 +201,45 @@ def download_prompt(subtitles_list, ep_info):
 
     for subtitle in subtitles_list:
         sync = subtitle['MatchedBy'] == 'moviehash'
-        print "{}:{} {} | Downloads: {}".format(count,
+        print("{}:{} {} | Downloads: {}".format(count,
                                                 "" if not sync else " [sync match]",
                                                 subtitle["SubFileName"],
-                                                subtitle["SubDownloadsCnt"], )
+                                                subtitle["SubDownloadsCnt"], ))
         sub_dict[count] = subtitle
         count += 1
-    possible_choices.extend(sub_dict.keys())
+    possible_choices.extend(list(sub_dict.keys()))
 
     while user_choice not in possible_choices:
-        user_input = raw_input("Enter subtitle # to download or 's' - skip this file,"
-                               " 'a' - auto download,"
-                               " 'q' - quit\n>>>")
-        try:  # Faster than .isdigit()
-            user_choice = int(user_input)
-        except:
-            user_choice = user_input.lower()
+        user_input = input("Enter subtitle # to download or 's' - skip this file,"
+                           " 'a' - auto download,"
+                           " 'q' - quit\n>>>")
+
+        user_choice=int(user_input) if user_input.isdigit() else user_input.lower()
+        # try:
+        #     user_choice = int(user_input)
+        # except:
+        #     user_choice = user_input.lower()
 
         if user_choice not in possible_choices:
-            print "invalid input"
+            print("invalid input")
 
     if type(user_choice) is int:
         if sub_dict.get(user_choice, False) is not False:
             download_subtitle(sub_dict[user_choice], ep_info)
         else:
-            print "Invalid input only subtitle choices from {} to {} are available".format(1, count)
+            print("Invalid input only subtitle choices from {} to {} are available".format(1, count))
 
     elif user_choice.lower() == "a":
         auto_download(subtitles_list, ep_info)
 
     elif user_choice.lower() == "q":
-        print 'Quitting'
+        print('Quitting')
         exit()
 
     elif user_choice.lower() == "s":
-        print "skipping..."
+        print("skipping...")
     else:
-        print "Invalid input"
+        print("Invalid input")
 
 
 # noinspection PyArgumentList
@@ -277,7 +289,7 @@ def auto_download(subtitles_list, ep_info):
     if best_choice["best"] is not None:
         download_subtitle(best_choice["best"], ep_info)
     else:
-        print "Can't find correct subtitle"
+        print("Can't find correct subtitle")
 
 
 # noinspection PyBroadException
@@ -303,15 +315,15 @@ def download_subtitle(subtitle_info, ep_info):
     # Not in try/except because this shouldn't ever fail, and if it does other subtitles
     # won't be downloaded too so ignoring it seems useless. letting it to raise
     # error makes more sense
-    sub_zip_file = urllib2.urlopen(download_url)
-    sub_gzip = gzip.GzipFile(fileobj=StringIO.StringIO(sub_zip_file.read()))
+    sub_zip_file = request.urlopen(download_url)
+    sub_gzip = gzip.GzipFile(fileobj=StringIO(sub_zip_file.read()))
     subtitle_content = sub_gzip.read()
     try:
         with open(subtitle_name, 'wb') as subtitle_output:
             subtitle_output.write(subtitle_content)
-        print "Downloaded subtitle..."
+        print("Downloaded subtitle...")
     except:
-        print "Couldn't save subtitle, permissions issue?"
+        print("Couldn't save subtitle, permissions issue?")
 
 
 def get_hash(file_name, file_size):
@@ -374,7 +386,7 @@ if __name__ == '__main__':
         valid_files = [directory + name for name in os.listdir(directory)
                        if os.path.splitext(name)[1] in FILE_EXT]
     else:
-        print "{} is not a valid file or directory".format(directory)
+        print("{} is not a valid file or directory".format(directory))
     if args.subfolder:
         SUBFOLDER = args.subfolder
         SUBFOLDER = SUBFOLDER.replace(slashes_type, "")
@@ -382,8 +394,8 @@ if __name__ == '__main__':
         if len(args.language) == 3:
             sub_language = args.language.lower()
         else:
-            print 'Argument not ISO 639-1 Code check this for list of valid codes' \
-                  ' http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes'
+            print('Argument not ISO 639-1 Code check this for list of valid codes' \
+                  ' http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes')
             exit()
 
     if args.auto:
