@@ -27,7 +27,7 @@ if version_info >= (3, 0):
     import urllib.request as request
     from io import StringIO
     from xmlrpc.client import ServerProxy
-elif version_info>= (2, 7):
+elif version_info >= (2, 7):
     import urllib2 as request
     from StringIO import StringIO
     from xmlrpclib import ServerProxy
@@ -67,6 +67,7 @@ slashes_type = "\\" if os.name == "nt" else "/" # assume unix like path
 # noinspection PyBroadException
 def search_subtitles(file_list):
     """
+    :rtype : object
     :param file_list: list of video files(with full path) for which to search subtitles
     """
     #TODO: Check if user is over the download limit
@@ -96,7 +97,7 @@ def search_subtitles(file_list):
                                                                           count,
                                                                           len(file_list)))
 
-        if os.path.exists(sub_path + os.path.splitext(file_name)[0] + ".srt") and not OVERWRITE:
+        if os.path.exists("{0}{1}.srt".format(sub_path, os.path.splitext(file_name)[0])) and not OVERWRITE:
             # FIXME: Only works for .srt subs
             # Maybe still make the search but check if file exists before downloading
             # or just download only srt subs
@@ -126,7 +127,7 @@ def search_subtitles(file_list):
             query_info = "{} S{:02d}E{:02d}".format(tv_show, # TODO: season & episode redundant?
                                                     int(season),
                                                     int(episode),
-            ).replace(" ", "+")
+                                                    ).replace(" ", "+")
 
             # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
             # If you define imdbid, then moviehash, moviebytesize and query is ignored.
@@ -154,7 +155,7 @@ def search_subtitles(file_list):
                     query_results = query_results['data']
 
         if hash_search:
-            hash_results = server.SearchSubtitles(token, file_search_query)
+            hash_results = server.SearchSubtitles(token, hash_search_query)
             if hash_results['status'] != '200 OK':
                 print('"Hash search failed', hash_results['status'])
                 hash_results = None
@@ -183,6 +184,7 @@ def search_subtitles(file_list):
             download_prompt(subtitles_list, ep_info)
 
     server.LogOut(token)
+
 
 # noinspection PyBroadException
 def download_prompt(subtitles_list, ep_info):
@@ -214,7 +216,7 @@ def download_prompt(subtitles_list, ep_info):
                            " 'a' - auto download,"
                            " 'q' - quit\n>>>")
 
-        user_choice=int(user_input) if user_input.isdigit() else user_input.lower()
+        user_choice = int(user_input) if user_input.isdigit() else user_input.lower()
         # try:
         #     user_choice = int(user_input)
         # except:
@@ -387,6 +389,7 @@ if __name__ == '__main__':
                        if os.path.splitext(name)[1] in FILE_EXT]
     else:
         print("{} is not a valid file or directory".format(directory))
+        exit()
     if args.subfolder:
         SUBFOLDER = args.subfolder
         SUBFOLDER = SUBFOLDER.replace(slashes_type, "")
@@ -394,7 +397,7 @@ if __name__ == '__main__':
         if len(args.language) == 3:
             sub_language = args.language.lower()
         else:
-            print('Argument not ISO 639-1 Code check this for list of valid codes' \
+            print('Argument not ISO 639-1 Code check this for list of valid codes'
                   ' http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes')
             exit()
 
