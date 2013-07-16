@@ -65,9 +65,15 @@ def search_subtitles(file_list):
     try:
         session = server.LogIn("", "", sub_language, useragent)
     except:
-        print "Can't log in to opensubtitles API, try again later..."
+        print "Error logging in to opensubtiles API."
         exit()
-    token = session["token"]
+
+    if session['status']!="200 OK":
+        print "Error logging in to opensubtiles API.",session['status']
+        exit()
+    else:
+        token = session["token"]
+
     for file_path in file_list:
 
         count += 1
@@ -82,6 +88,8 @@ def search_subtitles(file_list):
 
         if os.path.exists(sub_path + os.path.splitext(file_name)[0] + ".srt") and not OVERWRITE:
             # FIXME: Only works for .srt subs
+            # Maybe still make the search but check if file exists before downloading
+            # or just download only srt subs
             print "Subtitle already exist, skipping..."
             continue
 
@@ -164,6 +172,7 @@ def search_subtitles(file_list):
 
             download_prompt(subtitles_list, ep_info)
 
+    server.LogOut(token)
 
 # noinspection PyBroadException
 def download_prompt(subtitles_list, ep_info):
@@ -243,8 +252,8 @@ def auto_download(subtitles_list, ep_info):
             subtitle_title_name = subtitle['MovieName'].replace("'", "").replace('"', '').lower()
             episode_title_name = "{} {}".format(ep_info['series'].lower(), ep_info['title'].lower())
         except KeyError:
-            subtitle_title_name = 0
-            episode_title_name = 1
+            subtitle_title_name = "0"
+            episode_title_name = "1"
             # TV Show name and title are separate keys in ep_info dict, not like in sub dict
 
         sequence.set_seqs(subtitle_title_name, episode_title_name)
