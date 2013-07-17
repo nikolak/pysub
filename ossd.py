@@ -27,12 +27,10 @@ if version_info >= (3, 0):
     import urllib.request as request
     from io import StringIO
     from xmlrpc.client import ServerProxy
-elif version_info >= (2, 7):
+else:# Assume 2.x (Works on 2.7.x, not sure about older versions)
     import urllib2 as request
     from StringIO import StringIO
     from xmlrpclib import ServerProxy
-else:
-    print("This script hasn't been tested on python versions lower than 2.7")
 
 try:
     # noinspection PyUnresolvedReferences
@@ -66,6 +64,7 @@ slashes_type = "\\" if os.name == "nt" else "/" # assume unix like path
 
 # noinspection PyBroadException
 def search_subtitles(file_list):
+    #TODO: Instead of performing search for each file, construct queries and execute them all at once
     """
     :rtype : object
     :param file_list: list of video files(with full path) for which to search subtitles
@@ -122,24 +121,23 @@ def search_subtitles(file_list):
             tv_show = ep_info['series']
             season = ep_info['season']
             episode = ep_info['episodeNumber']
-            # todo: Construct query like this perhaps: array('query' => 'south
-            # park', 'season' => 1, 'episode' => 1, 'sublanguageid'=>'all'),
+
             query_info = "{} S{:02d}E{:02d}".format(tv_show, # TODO: season & episode redundant?
                                                     int(season),
                                                     int(episode),
                                                     ).replace(" ", "+")
 
+            # if/elif/elif:
             # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
             # If you define imdbid, then moviehash, moviebytesize and query is ignored.
             # If you define query, then moviehash, moviebytesize and imdbid is ignored.
             file_search_query = [{'sublanguageid': sub_language,
-                                  'query': query_info, # TODO: Replace with only tv_show name
-                                  'season': season, # XXX: Check if this improves results.
+                                  'query': query_info,
+                                  'season': season,
                                   'episode': episode}]
             query_search = True
-        except KeyError:
+        except:
             print("Can't determine enough info about series/episode from the filename.")
-            # do_download = False
             query_search = False
 
         if query_search:
@@ -149,7 +147,6 @@ def search_subtitles(file_list):
                 query_results = None
             else:
                 if not query_results['data']:
-                    # print "Query search returned no results"
                     query_results = None
                 else:
                     query_results = query_results['data']
@@ -161,7 +158,6 @@ def search_subtitles(file_list):
                 hash_results = None
             else:
                 if not hash_results['data']:
-                    # print "Hash search returned no results"
                     hash_results = None
                 else:
                     hash_results = hash_results['data']
@@ -190,7 +186,7 @@ def search_subtitles(file_list):
 def download_prompt(subtitles_list, ep_info):
     """
     :param subtitles_list: list containing dicts of each subtitle returned from opensubtitles api
-    :param ep_info:  dict containing episode info most important -- 'series' - tv show name and 'title' -ep title
+    :param ep_info:  dict containing episode info; most important -- 'series' - tv show name and 'title' -ep title
     :return: Nothing
     """
     if AUTO_DOWNLOAD:
@@ -266,6 +262,7 @@ def auto_download(subtitles_list, ep_info):
             subtitle_title_name = subtitle['MovieName'].replace("'", "").replace('"', '').lower()
             episode_title_name = "{} {}".format(ep_info['series'].lower(), ep_info['title'].lower())
         except KeyError:
+            # Those keys don't exist, we can't compare sub info with anything
             subtitle_title_name = "0"
             episode_title_name = "1"
             # TV Show name and title are separate keys in ep_info dict, not like in sub dict
