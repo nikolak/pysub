@@ -199,10 +199,9 @@ def download_prompt(subtitles_list, ep_info):
 
     for subtitle in subtitles_list:
         sync = subtitle['MatchedBy'] == 'moviehash'
-        print("{}:{} {} | Downloads: {}".format(count,
-                                                "" if not sync else " [sync match]",
-                                                subtitle["SubFileName"],
-                                                subtitle["SubDownloadsCnt"], ))
+        print("{:<2}: {:^10} {:<}".format(count,
+                                            subtitle["SubDownloadsCnt"]+"*" if sync else subtitle["SubDownloadsCnt"],
+                                            subtitle["SubFileName"]))
         sub_dict[count] = subtitle
         count += 1
     possible_choices.extend(list(sub_dict.keys()))
@@ -213,10 +212,6 @@ def download_prompt(subtitles_list, ep_info):
                            " 'q' - quit\n>>>")
 
         user_choice = int(user_input) if user_input.isdigit() else user_input.lower()
-        # try:
-        #     user_choice = int(user_input)
-        # except:
-        #     user_choice = user_input.lower()
 
         if user_choice not in possible_choices:
             print("invalid input")
