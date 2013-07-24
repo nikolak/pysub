@@ -59,9 +59,6 @@ SUBFOLDER = None
 MATCH_CUTOFF = 0.75  # difflib ratio cutoff float range[0,1],
 # 0- strings don't have anything in common, 1- strings are identical
 
-slashes_type = "\\" if os.name == "nt" else "/" # assume unix like path
-
-
 # noinspection PyBroadException
 def search_subtitles(file_list):
     #TODO: Instead of performing search for each file, construct queries and execute them all at once
@@ -90,7 +87,7 @@ def search_subtitles(file_list):
         ep_info = None
         file_name = os.path.basename(file_path)
         sub_path = os.path.dirname(file_path)
-        sub_path += slashes_type if SUBFOLDER is None else slashes_type + SUBFOLDER + slashes_type
+        sub_path += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
 
         print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(file_name,
                                                                           count,
@@ -125,7 +122,7 @@ def search_subtitles(file_list):
             query_info = "{} S{:02d}E{:02d}".format(tv_show, # TODO: season & episode redundant?
                                                     int(season),
                                                     int(episode),
-                                                    ).replace(" ", "+")
+            ).replace(" ", "+")
 
             # if/elif/elif:
             # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
@@ -157,10 +154,11 @@ def search_subtitles(file_list):
                 print('"Hash search failed', hash_results['status'])
                 hash_results = None
             else:
-                if not hash_results['data']:
-                    hash_results = None
-                else:
-                    hash_results = hash_results['data']
+                hash_results = hash_results['data']
+                # if not hash_results['data']:
+                #     hash_results = None
+                # else:
+                #     hash_results = hash_results['data']
 
         if query_search is False and hash_search is False:
             do_download = False
@@ -200,8 +198,8 @@ def download_prompt(subtitles_list, ep_info):
     for subtitle in subtitles_list:
         sync = subtitle['MatchedBy'] == 'moviehash'
         print("{:<2}: {:^10} {:<}".format(count,
-                                            subtitle["SubDownloadsCnt"]+"*" if sync else subtitle["SubDownloadsCnt"],
-                                            subtitle["SubFileName"]))
+                                          subtitle["SubDownloadsCnt"] + "*" if sync else subtitle["SubDownloadsCnt"],
+                                          subtitle["SubFileName"]))
         sub_dict[count] = subtitle
         count += 1
     possible_choices.extend(list(sub_dict.keys()))
@@ -284,6 +282,10 @@ def auto_download(subtitles_list, ep_info):
         download_subtitle(best_choice["best"], ep_info)
     else:
         print("Can't find correct subtitle")
+        with open("not_found.log", "a") as nflog:
+            nflog.write(str(ep_info) + "\n\n")
+            nflog.write(str(subtitles_list) + "\n\n\n")
+            nflog.write("**" * 50)
 
 
 # noinspection PyBroadException
@@ -298,7 +300,7 @@ def download_subtitle(subtitle_info, ep_info):
     """
     download_url = subtitle_info["SubDownloadLink"]
     subtitle_folder = os.path.dirname(ep_info['filename'])
-    subtitle_folder += slashes_type if SUBFOLDER is None else slashes_type + SUBFOLDER + slashes_type
+    subtitle_folder += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
     subtitle_name = subtitle_folder + os.path.basename(ep_info["filename"])
     subtitle_name += "." + subtitle_info["SubFormat"]  # .srt only on opensubtitles?
 
@@ -375,7 +377,7 @@ if __name__ == '__main__':
     if os.path.isfile(directory):
         valid_files = [directory]  # single file, although its name is directory
     elif os.path.isdir(directory):
-        directory += slashes_type if not directory.endswith(slashes_type) else ""
+        directory += os.sep if not directory.endswith(os.sep) else ""
 
         valid_files = [directory + name for name in os.listdir(directory)
                        if os.path.splitext(name)[1] in FILE_EXT]
@@ -384,7 +386,7 @@ if __name__ == '__main__':
         exit()
     if args.subfolder:
         SUBFOLDER = args.subfolder
-        SUBFOLDER = SUBFOLDER.replace(slashes_type, "")
+        SUBFOLDER = SUBFOLDER.replace(os.sep, "")
     if args.language:
         if len(args.language) == 3:
             sub_language = args.language.lower()
