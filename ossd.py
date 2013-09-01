@@ -155,10 +155,6 @@ def search_subtitles(file_list):
                 hash_results = None
             else:
                 hash_results = hash_results['data']
-                # if not hash_results['data']:
-                #     hash_results = None
-                # else:
-                #     hash_results = hash_results['data']
 
         if query_search is False and hash_search is False:
             do_download = False
@@ -197,6 +193,7 @@ def download_prompt(subtitles_list, ep_info):
 
     for subtitle in subtitles_list:
         sync = subtitle['MatchedBy'] == 'moviehash'
+        print("{:<2}: {:^10} {:<} {}\n{}".format("#","Downloads","Subtitle Name"," * - Sync subtitle","-"*50))
         print("{:<2}: {:^10} {:<}".format(count,
                                           subtitle["SubDownloadsCnt"] + "*" if sync else subtitle["SubDownloadsCnt"],
                                           subtitle["SubFileName"]))
@@ -205,9 +202,12 @@ def download_prompt(subtitles_list, ep_info):
     possible_choices.extend(list(sub_dict.keys()))
 
     while user_choice not in possible_choices:
-        user_input = input("Enter subtitle # to download or 's' - skip this file,"
-                           " 'a' - auto download,"
-                           " 'q' - quit\n>>>")
+        prompt_text="return - download first, 's' - skip, 'a' - auto choose, 'q' - quit \n>>>"
+
+        if version_info>=(3,0):
+            user_input = input(prompt_text)
+        else:
+            user_input = raw_input(prompt_text)
 
         user_choice = int(user_input) if user_input.isdigit() else user_input.lower()
 
@@ -229,6 +229,10 @@ def download_prompt(subtitles_list, ep_info):
 
     elif user_choice.lower() == "s":
         print("skipping...")
+
+    elif user_choice == "":
+        download_prompt(sub_dict[1], ep_info)
+
     else:
         print("Invalid input")
 
@@ -277,7 +281,6 @@ def auto_download(subtitles_list, ep_info):
             best_choice["best"] = sub
             best_choice["downloads"] = sub["SubDownloadsCnt"]
 
-    #print best_choice["best"]["SubFileName"], best_choice["downloads"]
     if best_choice["best"] is not None:
         download_subtitle(best_choice["best"], ep_info)
     else:
@@ -325,7 +328,7 @@ def download_subtitle(subtitle_info, ep_info):
 def get_hash(file_name, file_size):
     """
     :param file_name: File path for which to calculate hash
-    :return: Hash or None
+    :return: Hash string or None
     """
     if file_size < 65536 * 2:
         return None
