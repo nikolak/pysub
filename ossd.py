@@ -190,10 +190,10 @@ def download_prompt(subtitles_list, ep_info):
     possible_choices = ["a", "q", "s"]
     sub_dict = {}
     count = 1
+    print("{:<2}: {:^10} {:<} {}\n{}".format("#","Downloads","Subtitle Name"," * - Sync subtitle","-"*50))
 
     for subtitle in subtitles_list:
         sync = subtitle['MatchedBy'] == 'moviehash'
-        print("{:<2}: {:^10} {:<} {}\n{}".format("#","Downloads","Subtitle Name"," * - Sync subtitle","-"*50))
         print("{:<2}: {:^10} {:<}".format(count,
                                           subtitle["SubDownloadsCnt"] + "*" if sync else subtitle["SubDownloadsCnt"],
                                           subtitle["SubFileName"]))
