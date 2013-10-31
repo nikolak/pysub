@@ -23,48 +23,46 @@ Optionally can overwrite already existing subtitle files, if they're the same na
 
 ----
 
-usage: `ossd.py [-h] [-s SUBFOLDER] [-l LANGUAGE] [-a] folder`
+    usage: ossd.py [-h] [-s SUBFOLDER] [-l LANGUAGE] [-a] [-o] folder
 
-Subtitle downloader for TV Shows
+    Subtitle downloader for TV Shows
 
-*positional arguments:*
+    positional arguments:
+      folder                Folder which will be scanned for allowed video files,
+                            and subtitles for those files will be downloaded
 
-  `folder`                - *Folder which will be scanned for allowed video files, and subtitles for those files will be downloaded*
+    optional arguments:
+      -h, --help            show this help message and exit
+      -s SUBFOLDER, --subfolder SUBFOLDER
+                            Subfolder to save subtitles to, relative to original
+                            video file path
+      -l LANGUAGE, --language LANGUAGE
+                            Subtitle language, must be an ISO 639-1 Code i.e.
+                            (eng,fre,deu) Default English(eng)
+      -a, --auto            Auto download subtitles for all files without prompt
 
-*optional arguments:*
-
-  `-h, --help`                          - *show this help message and exit*
-
-  `-s SUBFOLDER, --subfolder SUBFOLDER` - *Subfolder to save subtitles to, relative to original video file path*
-
-  `-l LANGUAGE, --language LANGUAGE`    - *Subtitle language, must be an ISO 639-1 Code i.e.(eng,fre,deu) Default English(eng)*
-
-  `-a, --auto`                          - *Auto download subtitles for all files without prompt (Overwrites subtitles with same filename)*
+      -o, --overwrite       Overwrite if subtitle with same filename exist.
 
 
 Usage examples
 --------
 
-Auto download subtiles for all video files in the specified folder and save them to "Subs" subfolder
+Search subtitle for one file even if subtitle already exists and save it to `Subs` subfolder in same directory as video file.
 
 
-`$ python ossd.py -a -s Subs "/TV/The Office/Season 6"`
---------------------------------------------------
-Searching subtitle for "The Office (US) - [06x01] - Gossip.flv" | (1/12)
-Downloaded subtitle...
---------------------------------------------------
-Searching subtitle for "The Office (US) - [06x02] - The Meeting.flv" | (2/12)
-Can't match subtitle...
-
-Search and ask which subtitle to download for specific file, subtitle will be saved in same directory as video file.
-
-
-`$ python ossd.py "/The Office/Season 4/The Office (US) - Dunder Mifflin Infinity.flv"`
-1: the.office.s04e02.dvdrip.xvid-orpheus.EN.srt | Downloads: 9338
-2: The Office (US) - 04x02 - Dunder Mifflin infinity.srt | Downloads: 3800
-3: the.office.402.pro.cap.EN.srt | Downloads: 1841
-4: The.Office.US.S04E02.Dunder.Mifflin.Infinity.HDTV.XviD-XOR.srt | Downloads: 1242
-5: The.Office.S04E02.Dunder Mifflin Infinity.720p.WEB-DL.AAC2.0.AVC-CtrlHD.srt | Downloads: 139
-6: Hannah.Montana.S04E02.iNT.HDTV.XviD-OSHT.srt | Downloads: 171
-Enter subtitle # to download or 's' - skip this file, 'a' - auto download, 'q' - quit
->>>
+    python .\ossd.py 'D:\TV\Futurama\Season 4\Futurama - S04E01 - Kif Gets Knocked Up A Notch.avi' -s Subs -o
+    --------------------------------------------------
+    Searching subtitle for "Futurama - S04E01 - Kif Gets Knocked Up A Notch.avi" | (1/1)
+    # : Downloads  Subtitle Name  * - Sync subtitle
+    --------------------------------------------------
+    1 :   12054    s4e01 - Kif Gets Knocked Up A Notch.srt
+    2 :    981     19.srt
+    3 :    148     futurama.s04e01.flangerrip.srt
+    4 :    8058    Futurama - 4x01 - Roswell That Ends Well.srt
+    5 :    1022    Futurama - 4x01 - Roswell that Ends Well.EN.sub
+    6 :    321     Futurama [4x01] - Roswell That Ends Well - CiWaN.sub
+    7 :   1490*    1.srt
+    8 :   12054*   s4e01 - Kif Gets Knocked Up A Notch.srt
+    9 :    789*    Futurama [5x05] - Kif Gets Knocked Up A Notch - CiWaN.sub
+    return - download first, 's' - skip, 'a' - auto choose, 'q' - quit
+    >>>
