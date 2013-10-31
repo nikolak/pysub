@@ -92,9 +92,7 @@ def search_subtitles(file_list):
         print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(file_name,
                                                                           count,
                                                                           len(file_list)))
-        #
-        #print "Checking for"
-        #print "{0}{1}.srt".format(sub_path, file_name)
+
         if os.path.exists("{0}{1}.srt".format(sub_path, file_name)) and not OVERWRITE:
             # FIXME: Only works for .srt subs
             # Maybe still make the search but check if file exists before downloading
@@ -372,8 +370,7 @@ if __name__ == '__main__':
     parser.add_argument("-l", "--language", type=str,
                         help="Subtitle language, must be an ISO 639-1 Code i.e. (eng,fre,deu) Default English(eng)")
     parser.add_argument("-a", "--auto", action="store_true",
-                        help="Auto download subtitles for all files without prompt "
-                             "(Overwrites subtitles with same filename)")
+                        help="Auto download subtitles for all files without prompt ")
     parser.add_argument("-o", "--overwrite", action="store_true",
                         help="Overwrite if subtitle with same filename exist.")
     args = parser.parse_args()
@@ -405,7 +402,5 @@ if __name__ == '__main__':
 
     if args.overwrite:
         OVERWRITE = True
-
-    print valid_files
 
     search_subtitles(valid_files)
