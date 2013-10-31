@@ -92,8 +92,10 @@ def search_subtitles(file_list):
         print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(file_name,
                                                                           count,
                                                                           len(file_list)))
-
-        if os.path.exists("{0}{1}.srt".format(sub_path, os.path.splitext(file_name)[0])) and not OVERWRITE:
+        #
+        #print "Checking for"
+        #print "{0}{1}.srt".format(sub_path, file_name)
+        if os.path.exists("{0}{1}.srt".format(sub_path, file_name)) and not OVERWRITE:
             # FIXME: Only works for .srt subs
             # Maybe still make the search but check if file exists before downloading
             # or just download only srt subs
@@ -403,5 +405,7 @@ if __name__ == '__main__':
 
     if args.overwrite:
         OVERWRITE = True
+
+    print valid_files
 
     search_subtitles(valid_files)
