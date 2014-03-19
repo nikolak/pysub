@@ -92,8 +92,6 @@ def search_subtitles(file_list):
         sub_path = os.path.dirname(os.path.abspath(file_path))
         sub_path += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
 
-        print sub_path
-
         print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(file_name,
                                                                           count,
                                                                           len(file_list)))
@@ -319,12 +317,9 @@ def download_subtitle(subtitle_info, ep_info):
     u'type': u'episode', u'season': 7, u'filename':<full file path>}
     """
     download_url = subtitle_info["SubDownloadLink"]
-    subtitle_folder = ep_info['sub_folder']  #os.path.dirname(ep_info['filename'])
-    # subtitle_folder += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
+    subtitle_folder = ep_info['sub_folder']
     subtitle_name = subtitle_folder + os.path.basename(ep_info["filename"])
     subtitle_name += "." + subtitle_info["SubFormat"]  # .srt only on opensubtitles?
-
-    print subtitle_folder
 
     if not os.path.isdir(subtitle_folder):
         os.mkdir(subtitle_folder)
@@ -403,7 +398,6 @@ if __name__ == '__main__':
     directory = args.folder
     if os.path.isfile(directory):
         valid_files = [directory]  # single file, although its name is directory
-        print valid_files
     elif os.path.isdir(directory):
         directory += os.sep if not directory.endswith(os.sep) else ""
 
