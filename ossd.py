@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (C) 2013  Nikola Kovacevic
+# Copyright (C) 2013, 2014 Nikola Kovacevic <nikolak@outlook.com>
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ if version_info >= (3, 0):
     import urllib.request as request
     from io import StringIO
     from xmlrpc.client import ServerProxy
-else:# Assume 2.x (Works on 2.7.x, not sure about older versions)
+else:  # Assume 2.x (Works on 2.7.x, not sure about older versions)
     import urllib2 as request
     from StringIO import StringIO
     from xmlrpclib import ServerProxy
@@ -36,7 +36,7 @@ try:
     # noinspection PyUnresolvedReferences
     import guessit
 except ImportError:
-    print("Can't import guessit module, only searches using file hash will be performed")
+    print("Can't import guessit module, only searches using file hash will be performed\n")
 
 FILE_EXT = [
     '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx', '.avchd', '.avi',
@@ -48,6 +48,9 @@ FILE_EXT = [
     '.swf', '.ts', '.vfw', '.vid', '.video', '.viv', '.vivo', '.vob', '.vro', '.wm',
     '.wmv', '.wmx', '.wrap', '.wvx', '.wx', '.x264', '.xvid'
 ]
+
+SUB_EXT = ['.aqt', '.gsub', '.jss', '.sub', '.pjs', '.psb', '.rt', '.smi', '.stl', '.ssf',
+           '.srt', '.ssa', '.ass', '.sub', '.usf', ]
 
 sub_language = 'eng'
 useragent = "ossubd"
@@ -86,19 +89,28 @@ def search_subtitles(file_list):
         count += 1
         ep_info = None
         file_name = os.path.basename(file_path)
-        sub_path = os.path.dirname(file_path)
+        sub_path = os.path.dirname(os.path.abspath(file_path))
         sub_path += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
+
+        print sub_path
 
         print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(file_name,
                                                                           count,
                                                                           len(file_list)))
 
-        if os.path.exists("{0}{1}.srt".format(sub_path, file_name)) and not OVERWRITE:
-            # FIXME: Only works for .srt subs
-            # Maybe still make the search but check if file exists before downloading
-            # or just download only srt subs
-            print("Subtitle already exist, skipping...")
-            continue
+        if not OVERWRITE:
+            type_1 = "{0}{1}".format(sub_path, file_name)  #with original file ext
+            type_2 = "{0}{1}".format(sub_path,  #without
+                                     "".join(file_name.split('.')[:-1]))
+            sub_exists = False
+
+            for sub_format in SUB_EXT:
+                if os.path.exists(type_1 + sub_format) or os.path.exists(type_2 + sub_format):
+                    sub_exists = True
+                    break
+            if sub_exists:
+                print("Subtitle already exist, skipping...")
+                continue
 
         file_size = os.path.getsize(file_path)
         current_hash = get_hash(file_path, file_size)
@@ -119,10 +131,11 @@ def search_subtitles(file_list):
             season = ep_info['season']
             episode = ep_info['episodeNumber']
 
-            query_info = "{} S{:02d}E{:02d}".format(tv_show, # TODO: season & episode redundant?
+            query_info = "{} S{:02d}E{:02d}".format(tv_show,  # TODO: season & episode redundant?
                                                     int(season),
                                                     int(episode),
             ).replace(" ", "+")
+
 
             # if/elif/elif:
             # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
@@ -163,15 +176,18 @@ def search_subtitles(file_list):
             do_download = True
         if do_download:
             ep_info["filename"] = file_path
+            ep_info['sub_folder'] = sub_path
             subtitles_list = []
-            if query_results:# Subtitle results exist
+            if query_results:  # Subtitle results exist
                 for item in query_results:
                     subtitles_list.append(item)
             if hash_results:
                 for item in hash_results:
                     subtitles_list.append(item)
-
-            download_prompt(subtitles_list, ep_info)
+            if subtitles_list == []:
+                print("Couldn't find subtitles in {} for {}".format(sub_language, file_path))
+            else:
+                download_prompt(subtitles_list, ep_info)
 
     server.LogOut(token)
 
@@ -186,11 +202,11 @@ def download_prompt(subtitles_list, ep_info):
     if AUTO_DOWNLOAD:
         auto_download(subtitles_list, ep_info)
         return
-    user_choice = ""
-    possible_choices = ["a", "q", "s"]
+    user_choice = None
+    possible_choices = ["a", "q", "s", ""]
     sub_dict = {}
     count = 1
-    print("{:<2}: {:^10} {:<} {}\n{}".format("#","Downloads","Subtitle Name"," * - Sync subtitle","-"*50))
+    print("{:<2}: {:^10} {:<} {}\n{}".format("#", "Downloads", "Subtitle Name", " * - Sync subtitle", "-" * 50))
 
     for subtitle in subtitles_list:
         sync = subtitle['MatchedBy'] == 'moviehash'
@@ -202,9 +218,9 @@ def download_prompt(subtitles_list, ep_info):
     possible_choices.extend(list(sub_dict.keys()))
 
     while user_choice not in possible_choices:
-        prompt_text="return - download first, 's' - skip, 'a' - auto choose, 'q' - quit \n>>>"
+        prompt_text = "return - download first, 's' - skip, 'a' - auto choose, 'q' - quit \n>>>"
 
-        if version_info>=(3,0):
+        if version_info >= (3, 0):
             user_input = input(prompt_text)
         else:
             user_input = raw_input(prompt_text)
@@ -212,10 +228,11 @@ def download_prompt(subtitles_list, ep_info):
         user_choice = int(user_input) if user_input.isdigit() else user_input.lower()
 
         if user_choice not in possible_choices:
+            print "|{}|".format(user_choice)
             print("invalid input")
 
     if type(user_choice) is int:
-        if sub_dict.get(user_choice, False) is not False:
+        if sub_dict.get(user_choice, False):
             download_subtitle(sub_dict[user_choice], ep_info)
         else:
             print("Invalid input only subtitle choices from {} to {} are available".format(1, count))
@@ -231,7 +248,7 @@ def download_prompt(subtitles_list, ep_info):
         print("skipping...")
 
     elif user_choice == "":
-        download_prompt(sub_dict[1], ep_info)
+        download_subtitle(sub_dict[1], ep_info)
 
     else:
         print("Invalid input")
@@ -302,10 +319,12 @@ def download_subtitle(subtitle_info, ep_info):
     u'type': u'episode', u'season': 7, u'filename':<full file path>}
     """
     download_url = subtitle_info["SubDownloadLink"]
-    subtitle_folder = os.path.dirname(ep_info['filename'])
-    subtitle_folder += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
+    subtitle_folder = ep_info['sub_folder']  #os.path.dirname(ep_info['filename'])
+    # subtitle_folder += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
     subtitle_name = subtitle_folder + os.path.basename(ep_info["filename"])
     subtitle_name += "." + subtitle_info["SubFormat"]  # .srt only on opensubtitles?
+
+    print subtitle_folder
 
     if not os.path.isdir(subtitle_folder):
         os.mkdir(subtitle_folder)
@@ -373,11 +392,18 @@ if __name__ == '__main__':
                         help="Auto download subtitles for all files without prompt ")
     parser.add_argument("-o", "--overwrite", action="store_true",
                         help="Overwrite if subtitle with same filename exist.")
+    parser.add_argument("-f", "--format", type=str,
+                        help="Additional file formats that will be checked, comma separated,"
+                             "specify ony file formats e.g. 'avix,temp,format2' (without quotes)")
     args = parser.parse_args()
+
+    if args.format:
+        FILE_EXT += args.format.split(',')
 
     directory = args.folder
     if os.path.isfile(directory):
         valid_files = [directory]  # single file, although its name is directory
+        print valid_files
     elif os.path.isdir(directory):
         directory += os.sep if not directory.endswith(os.sep) else ""
 
