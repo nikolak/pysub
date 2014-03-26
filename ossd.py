@@ -300,10 +300,6 @@ def auto_download(subtitles_list, ep_info):
         download_subtitle(best_choice["best"], ep_info)
     else:
         print("Can't find correct subtitle")
-        with open("not_found.log", "a") as nflog:
-            nflog.write(str(ep_info) + "\n\n")
-            nflog.write(str(subtitles_list) + "\n\n\n")
-            nflog.write("**" * 50)
 
 
 # noinspection PyBroadException
