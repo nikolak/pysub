@@ -21,11 +21,7 @@ else:  # Assume 2.x (Works on 2.7.x, not sure about older versions)
     from StringIO import StringIO
     from xmlrpclib import ServerProxy
 
-try:
-    # noinspection PyUnresolvedReferences
-    import guessit
-except ImportError:
-    print("Can't import guessit module, only searches using file hash will be performed\n")
+import guessit
 
 FILE_EXT = [
     '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx', '.avchd', '.avi',
@@ -51,7 +47,66 @@ SUBFOLDER = None
 MATCH_CUTOFF = 0.75  # difflib ratio cutoff float range[0,1],
 # 0- strings don't have anything in common, 1- strings are identical
 
-# noinspection PyBroadException
+class Video(object):
+
+    def __init__(self, file_path):
+        self.file_path=file_path
+        self.file_name = os.path.basename(file_path)
+        self.sub_path = os.path.dirname(os.path.abspath(file_path))
+        self.sub_path += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
+        self.file_size=os.path.getsize(file_path)
+        self.file_hash=None
+
+        self.series = None
+        self.title = None
+        self.season = None
+        self.episodeNumber=None
+        self.format=None
+        self.release_group=None
+
+
+        self.__set_file_hash()
+
+    def __set_file_hash(self):
+        if self.file_size < 65536 * 2:
+            return None
+        try:
+            longlongformat = 'q'  # long long
+            bytesize = struct.calcsize(longlongformat)
+
+            f = open(self.file_name, "rb")
+
+            file_hash = self.file_size
+
+            for x in range(65536 / bytesize):
+                file_buffer = f.read(bytesize)
+                (l_value,) = struct.unpack(longlongformat, file_buffer)
+                file_hash += l_value
+                file_hash &= 0xFFFFFFFFFFFFFFFF  # to remain as 64bit number
+
+            f.seek(max(0, self.file_size - 65536), 0)
+            for x in range(65536 / bytesize):
+                file_buffer = f.read(bytesize)
+                (l_value,) = struct.unpack(longlongformat, file_buffer)
+                file_hash += l_value
+                file_hash &= 0xFFFFFFFFFFFFFFFF
+
+            f.close()
+            self.file_hash="%016x" % file_hash
+
+        except IOError:
+            return None
+
+    def __set_ep_info(self):
+        pass
+
+class Subtitle(object):
+
+    def __init__(self):
+        pass
+
+
+
 def search_subtitles(file_list):
     #TODO: Instead of performing search for each file, construct queries and execute them all at once
     """
@@ -76,19 +131,17 @@ def search_subtitles(file_list):
     for file_path in file_list:
 
         count += 1
-        ep_info = None
-        file_name = os.path.basename(file_path)
-        sub_path = os.path.dirname(os.path.abspath(file_path))
-        sub_path += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
+        video=Video(file_path)
+
 
         print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(file_name,
                                                                           count,
                                                                           len(file_list)))
 
         if not OVERWRITE:
-            type_1 = "{0}{1}".format(sub_path, file_name)  #with original file ext
-            type_2 = "{0}{1}".format(sub_path,  #without
-                                     "".join(file_name.split('.')[:-1]))
+            type_1 = "{0}{1}".format(video.sub_path, video.file_name)  #with original file ext
+            type_2 = "{0}{1}".format(video.sub_path,  #without
+                                     "".join(video.file_name.split('.')[:-1]))
             sub_exists = False
 
             for sub_format in SUB_EXT:
@@ -99,16 +152,13 @@ def search_subtitles(file_list):
                 print("Subtitle already exist, skipping...")
                 continue
 
-        file_size = os.path.getsize(file_path)
-        current_hash = get_hash(file_path, file_size)
-
-        if current_hash is None:
+        if video.file_hash is None:
             print("Can't calculate hash for {}".format(file_path))
             hash_search = False
         else:
             hash_search_query = [{"sublanguageid": sub_language,
-                                  'moviehash': current_hash,
-                                  'moviebytesize': file_size}]
+                                  'moviehash': video.file_hash,
+                                  'moviebytesize': video.file_size}]
             hash_search = True
 
         try:
@@ -139,7 +189,7 @@ def search_subtitles(file_list):
 
         if query_search:
             query_results = server.SearchSubtitles(token, file_search_query)
-            if query_results['status'] != "200 OK":
+            if query_results['status'] != "200 OK": # FIXME: This doesn't happen, like, ever.
                 print("Query search failed ", query_results['status'])
                 query_results = None
             else:
@@ -163,7 +213,7 @@ def search_subtitles(file_list):
             do_download = True
         if do_download:
             ep_info["filename"] = file_path
-            ep_info['sub_folder'] = sub_path
+            ep_info['sub_folder'] = video.sub_path
             subtitles_list = []
             if query_results:  # Subtitle results exist
                 for item in query_results:
@@ -241,7 +291,6 @@ def download_prompt(subtitles_list, ep_info):
         print("Invalid input")
 
 
-# noinspection PyArgumentList
 def auto_download(subtitles_list, ep_info):
     """
     :param subtitles_list: list containing (all) subtitle dicts returned from opensubtitles
@@ -322,41 +371,6 @@ def download_subtitle(subtitle_info, ep_info):
         print("Downloaded subtitle...")
     except:
         print("Couldn't save subtitle, permissions issue?")
-
-
-def get_hash(file_name, file_size):
-    """
-    :param file_name: File path for which to calculate hash
-    :return: Hash string or None
-    """
-    if file_size < 65536 * 2:
-        return None
-    try:
-        longlongformat = 'q'  # long long
-        bytesize = struct.calcsize(longlongformat)
-
-        f = open(file_name, "rb")
-
-        file_hash = file_size
-
-        for x in range(65536 / bytesize):
-            file_buffer = f.read(bytesize)
-            (l_value,) = struct.unpack(longlongformat, file_buffer)
-            file_hash += l_value
-            file_hash &= 0xFFFFFFFFFFFFFFFF  # to remain as 64bit number
-
-        f.seek(max(0, file_size - 65536), 0)
-        for x in range(65536 / bytesize):
-            file_buffer = f.read(bytesize)
-            (l_value,) = struct.unpack(longlongformat, file_buffer)
-            file_hash += l_value
-            file_hash &= 0xFFFFFFFFFFFFFFFF
-
-        f.close()
-        return "%016x" % file_hash
-
-    except IOError:
-        return None
 
 
 if __name__ == '__main__':
