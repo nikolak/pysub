@@ -48,24 +48,34 @@ MATCH_CUTOFF = 0.75  # difflib ratio cutoff float range[0,1],
 # 0- strings don't have anything in common, 1- strings are identical
 
 class Video(object):
-
     def __init__(self, file_path):
-        self.file_path=file_path
+        self.file_path = file_path
         self.file_name = os.path.basename(file_path)
         self.sub_path = os.path.dirname(os.path.abspath(file_path))
         self.sub_path += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
-        self.file_size=os.path.getsize(file_path)
-        self.file_hash=None
+        self.file_size = os.path.getsize(file_path)
+        self.file_hash = None
 
-        self.series = None
-        self.title = None
-        self.season = None
-        self.episodeNumber=None
-        self.format=None
-        self.release_group=None
+        self.ep_info = guessit.guess_episode_info(file_path)
+        self._f_query = "{} S{:02d}E{:02d}".format(self.ep_info['series'],
+                                                   int(self.ep_info['season']),
+                                                   int(self.ep_info['episodeNumber'])
+        )
 
+
+        # Search query for information gathered from filename/guessit
+        self.file_search_query = [{'sublanguageid': sub_language,
+                                   'query': self._f_query,
+                                   'season': self.ep_info['season'],
+                                   'episode': self.ep_info['episodeNumber']}]
+
+        self.hash_search_query = [{"sublanguageid": sub_language,
+                                   'moviehash': self.file_hash,
+                                   'moviebytesize': self.file_size}]
 
         self.__set_file_hash()
+
+        self.subtitles=[]
 
     def __set_file_hash(self):
         if self.file_size < 65536 * 2:
@@ -74,37 +84,32 @@ class Video(object):
             longlongformat = 'q'  # long long
             bytesize = struct.calcsize(longlongformat)
 
-            f = open(self.file_name, "rb")
+            with open(self.file_name, "rb") as f:
 
-            file_hash = self.file_size
+                file_hash = self.file_size
 
-            for x in range(65536 / bytesize):
-                file_buffer = f.read(bytesize)
-                (l_value,) = struct.unpack(longlongformat, file_buffer)
-                file_hash += l_value
-                file_hash &= 0xFFFFFFFFFFFFFFFF  # to remain as 64bit number
+                for x in range(65536 / bytesize):
+                    file_buffer = f.read(bytesize)
+                    (l_value,) = struct.unpack(longlongformat, file_buffer)
+                    file_hash += l_value
+                    file_hash &= 0xFFFFFFFFFFFFFFFF  # to remain as 64bit number
 
-            f.seek(max(0, self.file_size - 65536), 0)
-            for x in range(65536 / bytesize):
-                file_buffer = f.read(bytesize)
-                (l_value,) = struct.unpack(longlongformat, file_buffer)
-                file_hash += l_value
-                file_hash &= 0xFFFFFFFFFFFFFFFF
+                f.seek(max(0, self.file_size - 65536), 0)
+                for x in range(65536 / bytesize):
+                    file_buffer = f.read(bytesize)
+                    (l_value,) = struct.unpack(longlongformat, file_buffer)
+                    file_hash += l_value
+                    file_hash &= 0xFFFFFFFFFFFFFFFF
 
-            f.close()
-            self.file_hash="%016x" % file_hash
+                self.file_hash = "%016x" % file_hash
 
         except IOError:
             return None
 
-    def __set_ep_info(self):
-        pass
 
 class Subtitle(object):
-
     def __init__(self):
         pass
-
 
 
 def search_subtitles(file_list):
@@ -131,10 +136,9 @@ def search_subtitles(file_list):
     for file_path in file_list:
 
         count += 1
-        video=Video(file_path)
+        video = Video(file_path)
 
-
-        print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(file_name,
+        print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(video.file_name,
                                                                           count,
                                                                           len(file_list)))
 
@@ -189,7 +193,7 @@ def search_subtitles(file_list):
 
         if query_search:
             query_results = server.SearchSubtitles(token, file_search_query)
-            if query_results['status'] != "200 OK": # FIXME: This doesn't happen, like, ever.
+            if query_results['status'] != "200 OK":  # FIXME: This doesn't happen, like, ever.
                 print("Query search failed ", query_results['status'])
                 query_results = None
             else:
