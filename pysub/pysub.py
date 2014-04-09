@@ -54,28 +54,36 @@ class Video(object):
         self.sub_path = os.path.dirname(os.path.abspath(file_path))
         self.sub_path += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
         self.file_size = os.path.getsize(file_path)
-        self.file_hash = None
+        self.file_hash = self.__set_file_hash()
+        self.subtitle_exists=self.__sub_exists()
+        self.subtitles=[]
 
         self.ep_info = guessit.guess_episode_info(file_path)
-        self._f_query = "{} S{:02d}E{:02d}".format(self.ep_info['series'],
-                                                   int(self.ep_info['season']),
-                                                   int(self.ep_info['episodeNumber'])
-        )
 
 
-        # Search query for information gathered from filename/guessit
-        self.file_search_query = [{'sublanguageid': sub_language,
-                                   'query': self._f_query,
-                                   'season': self.ep_info['season'],
-                                   'episode': self.ep_info['episodeNumber']}]
+        try: # ep_info might raise key error
+            _f_query = "{} S{:02d}E{:02d}".format(self.ep_info['series'],
+                                                       int(self.ep_info['season']),
+                                                       int(self.ep_info['episodeNumber']))
+            self.file_search_query = [{'sublanguageid': sub_language,
+                                       'query': _f_query,
+                                       'season': self.ep_info['season'],
+                                       'episode': self.ep_info['episodeNumber']}]
+        except KeyError:
+            self.file_hash_query=None
 
-        self.hash_search_query = [{"sublanguageid": sub_language,
-                                   'moviehash': self.file_hash,
-                                   'moviebytesize': self.file_size}]
+        if self.file_hash:
+            # if/elif/elif:
+            # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
+            # If you define imdbid, then moviehash, moviebytesize and query is ignored.
+            # If you define query, then moviehash, moviebytesize and imdbid is ignored.
+            self.hash_search_query = [{"sublanguageid": sub_language,
+                                       'moviehash': self.file_hash,
+                                       'moviebytesize': self.file_size}]
+        else:
+            self._hash_search_query=None
 
-        self.__set_file_hash()
 
-        self.subtitles=[]
 
     def __set_file_hash(self):
         if self.file_size < 65536 * 2:
@@ -101,10 +109,31 @@ class Video(object):
                     file_hash += l_value
                     file_hash &= 0xFFFFFFFFFFFFFFFF
 
-                self.file_hash = "%016x" % file_hash
+                return "%016x" % file_hash
 
         except IOError:
             return None
+
+
+    def __sub_exists(self):
+        """
+        This script will download subtitles as
+        original_filename.original_extension.subtitle_extension
+
+        Some other applications download as original_filename.sub_ext
+        We need to check both to be sure whether the subtitle exists or not
+        type_1 is naming this script uses
+        type_2 is naming without original file extension
+        """
+        type_1 = "{0}{1}".format(self.sub_path, self.file_name)
+        type_2 = "{0}{1}".format(self.sub_path,
+                                 "".join(self.file_name.split('.')[:-1]))
+
+        for sub_format in SUB_EXT:
+            if os.path.exists(type_1 + sub_format) or os.path.exists(type_2 + sub_format):
+                return True
+
+        return False
 
 
 class Subtitle(object):
@@ -143,56 +172,12 @@ def search_subtitles(file_list):
                                                                           len(file_list)))
 
         if not OVERWRITE:
-            type_1 = "{0}{1}".format(video.sub_path, video.file_name)  #with original file ext
-            type_2 = "{0}{1}".format(video.sub_path,  #without
-                                     "".join(video.file_name.split('.')[:-1]))
-            sub_exists = False
+            if video.subtitle_exists:
+                print("Subtitle already exists")
+            continue
 
-            for sub_format in SUB_EXT:
-                if os.path.exists(type_1 + sub_format) or os.path.exists(type_2 + sub_format):
-                    sub_exists = True
-                    break
-            if sub_exists:
-                print("Subtitle already exist, skipping...")
-                continue
-
-        if video.file_hash is None:
-            print("Can't calculate hash for {}".format(file_path))
-            hash_search = False
-        else:
-            hash_search_query = [{"sublanguageid": sub_language,
-                                  'moviehash': video.file_hash,
-                                  'moviebytesize': video.file_size}]
-            hash_search = True
-
-        try:
-            ep_info = guessit.guess_episode_info(file_path)
-
-            tv_show = ep_info['series']
-            season = ep_info['season']
-            episode = ep_info['episodeNumber']
-
-            query_info = "{} S{:02d}E{:02d}".format(tv_show,  # TODO: season & episode redundant?
-                                                    int(season),
-                                                    int(episode),
-            ).replace(" ", "+")
-
-
-            # if/elif/elif:
-            # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
-            # If you define imdbid, then moviehash, moviebytesize and query is ignored.
-            # If you define query, then moviehash, moviebytesize and imdbid is ignored.
-            file_search_query = [{'sublanguageid': sub_language,
-                                  'query': query_info,
-                                  'season': season,
-                                  'episode': episode}]
-            query_search = True
-        except:
-            print("Can't determine enough info about series/episode from the filename.")
-            query_search = False
-
-        if query_search:
-            query_results = server.SearchSubtitles(token, file_search_query)
+        if video.file_search_query:
+            query_results = server.SearchSubtitles(token, video.file_search_query)
             if query_results['status'] != "200 OK":  # FIXME: This doesn't happen, like, ever.
                 print("Query search failed ", query_results['status'])
                 query_results = None
@@ -202,19 +187,20 @@ def search_subtitles(file_list):
                 else:
                     query_results = query_results['data']
 
-        if hash_search:
-            hash_results = server.SearchSubtitles(token, hash_search_query)
+        if video.hash_search:
+            hash_results = server.SearchSubtitles(token, video.hash_search_query)
             if hash_results['status'] != '200 OK':
                 print('"Hash search failed', hash_results['status'])
                 hash_results = None
             else:
                 hash_results = hash_results['data']
 
-        if query_search is False and hash_search is False:
+        if not video.hash_search_query and not video.file_search_query:
             do_download = False
             print("Couldn't find subtitles in {} for {}".format(sub_language, file_path))
         else:
             do_download = True
+
         if do_download:
             ep_info["filename"] = file_path
             ep_info['sub_folder'] = video.sub_path
