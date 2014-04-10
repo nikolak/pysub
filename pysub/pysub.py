@@ -47,6 +47,18 @@ SUBFOLDER = None
 MATCH_CUTOFF = 0.75  # difflib ratio cutoff float range[0,1],
 # 0- strings don't have anything in common, 1- strings are identical
 
+
+class Subtitle(object):
+    def __init__(self, json_data):
+        self.downloads=None
+        self.matched_by=None
+        self.movie_name=None # Variable name not limited to movie titles
+        self.__parse_json(json_data)
+
+    def __parse_json(self, data):
+        pass
+
+
 class Video(object):
     def __init__(self, file_path):
         self.file_path = file_path
@@ -135,10 +147,11 @@ class Video(object):
 
         return False
 
+    def get_subtitles(self, json_data):
+        if not json_data['data']: # There is no subtitle data in the response
+            return
 
-class Subtitle(object):
-    def __init__(self):
-        pass
+        
 
 
 def search_subtitles(file_list):
@@ -149,7 +162,6 @@ def search_subtitles(file_list):
     """
     #TODO: Check if user is over the download limit
     #http://trac.opensubtitles.org/projects/opensubtitles/wiki/XMLRPC#ServerInfo
-    count = 0
     try:
         session = server.LogIn("", "", sub_language, useragent)
     except:
@@ -162,13 +174,13 @@ def search_subtitles(file_list):
     else:
         token = session["token"]
 
-    for file_path in file_list:
 
-        count += 1
+    for count,file_path in enumerate(file_list):
+
         video = Video(file_path)
 
         print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(video.file_name,
-                                                                          count,
+                                                                          count+1,
                                                                           len(file_list)))
 
         if not OVERWRITE:
@@ -180,12 +192,12 @@ def search_subtitles(file_list):
             query_results = server.SearchSubtitles(token, video.file_search_query)
             if query_results['status'] != "200 OK":  # FIXME: This doesn't happen, like, ever.
                 print("Query search failed ", query_results['status'])
-                query_results = None
             else:
-                if not query_results['data']:
-                    query_results = None
-                else:
-                    query_results = query_results['data']
+                video.get_subtitles(query_results)
+                # if not query_results['data']:
+                #     query_results = None
+                # else:
+                #     query_results = query_results['data']
 
         if video.hash_search:
             hash_results = server.SearchSubtitles(token, video.hash_search_query)
@@ -202,10 +214,10 @@ def search_subtitles(file_list):
             do_download = True
 
         if do_download:
-            ep_info["filename"] = file_path
-            ep_info['sub_folder'] = video.sub_path
+            # ep_info["filename"] = file_path
+            # ep_info['sub_folder'] = video.sub_path
             subtitles_list = []
-            if query_results:  # Subtitle results exist
+            if query_results:
                 for item in query_results:
                     subtitles_list.append(item)
             if hash_results:
@@ -214,7 +226,7 @@ def search_subtitles(file_list):
             if subtitles_list == []:
                 print("Couldn't find subtitles in {} for {}".format(sub_language, file_path))
             else:
-                download_prompt(subtitles_list, ep_info)
+                download_prompt(subtitles_list, video)
 
     server.LogOut(token)
 
@@ -255,7 +267,6 @@ def download_prompt(subtitles_list, ep_info):
         user_choice = int(user_input) if user_input.isdigit() else user_input.lower()
 
         if user_choice not in possible_choices:
-            print "|{}|".format(user_choice)
             print("invalid input")
 
     if type(user_choice) is int:
