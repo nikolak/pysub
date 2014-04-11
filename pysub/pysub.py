@@ -93,7 +93,7 @@ class Video(object):
                                        'moviehash': self.file_hash,
                                        'moviebytesize': self.file_size}]
         else:
-            self._hash_search_query=None
+            self.hash_search_query=None
 
 
 
@@ -104,7 +104,7 @@ class Video(object):
             longlongformat = 'q'  # long long
             bytesize = struct.calcsize(longlongformat)
 
-            with open(self.file_name, "rb") as f:
+            with open(self.file_path, "rb") as f:
 
                 file_hash = self.file_size
 
@@ -120,10 +120,10 @@ class Video(object):
                     (l_value,) = struct.unpack(longlongformat, file_buffer)
                     file_hash += l_value
                     file_hash &= 0xFFFFFFFFFFFFFFFF
-
                 return "%016x" % file_hash
 
         except IOError:
+            print "ioerror"
             return None
 
 
@@ -151,7 +151,9 @@ class Video(object):
         if not json_data['data']: # There is no subtitle data in the response
             return
 
-        
+        for sub_json in json_data['data']:
+            self.subtitles.append(Subtitle(sub_json))
+
 
 
 def search_subtitles(file_list):
@@ -183,9 +185,8 @@ def search_subtitles(file_list):
                                                                           count+1,
                                                                           len(file_list)))
 
-        if not OVERWRITE:
-            if video.subtitle_exists:
-                print("Subtitle already exists")
+        if not OVERWRITE and video.subtitle_exists:
+            print("Subtitle already exists")
             continue
 
         if video.file_search_query:
@@ -194,44 +195,23 @@ def search_subtitles(file_list):
                 print("Query search failed ", query_results['status'])
             else:
                 video.get_subtitles(query_results)
-                # if not query_results['data']:
-                #     query_results = None
-                # else:
-                #     query_results = query_results['data']
 
-        if video.hash_search:
+        if video.hash_search_query:
             hash_results = server.SearchSubtitles(token, video.hash_search_query)
             if hash_results['status'] != '200 OK':
                 print('"Hash search failed', hash_results['status'])
-                hash_results = None
             else:
-                hash_results = hash_results['data']
+                video.get_subtitles(hash_results)
 
-        if not video.hash_search_query and not video.file_search_query:
-            do_download = False
+        if (not video.hash_search_query and not video.file_search_query) or video.subtitles == []:
             print("Couldn't find subtitles in {} for {}".format(sub_language, file_path))
-        else:
-            do_download = True
+            continue
 
-        if do_download:
-            # ep_info["filename"] = file_path
-            # ep_info['sub_folder'] = video.sub_path
-            subtitles_list = []
-            if query_results:
-                for item in query_results:
-                    subtitles_list.append(item)
-            if hash_results:
-                for item in hash_results:
-                    subtitles_list.append(item)
-            if subtitles_list == []:
-                print("Couldn't find subtitles in {} for {}".format(sub_language, file_path))
-            else:
-                download_prompt(subtitles_list, video)
+        download_prompt(video)
 
     server.LogOut(token)
 
 
-# noinspection PyBroadException
 def download_prompt(subtitles_list, ep_info):
     """
     :param subtitles_list: list containing dicts of each subtitle returned from opensubtitles api
