@@ -50,13 +50,15 @@ MATCH_CUTOFF = 0.75  # difflib ratio cutoff float range[0,1],
 
 class Subtitle(object):
     def __init__(self, json_data):
-        self.downloads=None
-        self.matched_by=None
-        self.movie_name=None # Variable name not limited to movie titles
-        self.__parse_json(json_data)
+        self.ISO639=json_data.get('ISO639')
+        self.MatchedBy=json_data.get('MatchedBy')
+        self.MovieName=json_data.get('MovieName') # episode name or movie name
+        self.SeriesEpisode=json_data.get('SeriesEpisode') # episode number
+        self.SeriesSeason=json_data.get('SeriesSeason')
+        self.SubDownloadLink=json_data.get('SubDownloadLink')
+        self.SubDownloadsCnt=json_data.get('SubDownloadsCnt')
+        self.SubFormat=json_data.get('SubFormat')
 
-    def __parse_json(self, data):
-        pass
 
 
 class Video(object):
@@ -92,6 +94,7 @@ class Video(object):
             self.hash_search_query = [{"sublanguageid": sub_language,
                                        'moviehash': self.file_hash,
                                        'moviebytesize': self.file_size}]
+
         else:
             self.hash_search_query=None
 
@@ -171,6 +174,7 @@ def search_subtitles(file_list):
         exit()
 
     if session['status'] != "200 OK":
+        print session['status']
         print("Error logging in to opensubtiles API.", session['status'])
         exit()
     else:
