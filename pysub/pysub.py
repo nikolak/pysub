@@ -4,15 +4,19 @@
 # Copyright (C) 2013, 2014 Nikola Kovacevic <nikolak@outlook.com>
 
 
-from sys import version_info
-
 import os
+import re
+import sys
 import gzip
+import time
 import struct
 import difflib
 import argparse
 
-if version_info >= (3, 0):
+import guessit
+
+
+if sys.version >= '3':
     import urllib.request as request
     from io import StringIO
     from xmlrpc.client import ServerProxy
@@ -21,7 +25,7 @@ else:  # Assume 2.x (Works on 2.7.x, not sure about older versions)
     from StringIO import StringIO
     from xmlrpclib import ServerProxy
 
-import guessit
+    input = raw_input
 
 FILE_EXT = [
     '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx', '.avchd', '.avi',
@@ -37,70 +41,95 @@ FILE_EXT = [
 SUB_EXT = ['.aqt', '.gsub', '.jss', '.sub', '.pjs', '.psb', '.rt', '.smi', '.stl', '.ssf',
            '.srt', '.ssa', '.ass', '.sub', '.usf', ]
 
-sub_language = 'eng'
-useragent = "ossubd"
-server = ServerProxy("http://api.opensubtitles.org/xml-rpc")
-
 OVERWRITE = False
 AUTO_DOWNLOAD = False
 SUBFOLDER = None
 MATCH_CUTOFF = 0.75  # difflib ratio cutoff float range[0,1],
 # 0- strings don't have anything in common, 1- strings are identical
 
+sub_language = 'eng'
+
 
 class Subtitle(object):
-    def __init__(self, json_data):
-        self.ISO639=json_data.get('ISO639')
-        self.MatchedBy=json_data.get('MatchedBy')
-        self.MovieName=json_data.get('MovieName') # episode name or movie name
-        self.SeriesEpisode=json_data.get('SeriesEpisode') # episode number
-        self.SeriesSeason=json_data.get('SeriesSeason')
-        self.SubDownloadLink=json_data.get('SubDownloadLink')
-        self.SubDownloadsCnt=json_data.get('SubDownloadsCnt')
-        self.SubFormat=json_data.get('SubFormat')
+    def __init__(self, json_data, save_path, video_fname):
+        """
 
+        :param json_data:
+        :param save_path:
+        :param video_fname:
+        """
+        self.ISO639 = json_data.get('ISO639')
+        self.MatchedBy = json_data.get('MatchedBy')
+        self.synced = self.MatchedBy == "moviehash"
+        self.movie_name = json_data.get('MovieName', "")  # episode name or movie name
+        self.episode_num = json_data.get('SeriesEpisode')  # episode number
+        self.season_num = json_data.get('SeriesSeason')
+        self.download_link = json_data.get('SubDownloadLink')
+        self.download_count = json_data.get('SubDownloadsCnt')
+        self.sub_format = json_data.get('SubFormat')
+        self.sub_filename = json_data.get('SubFileName')
+        self.save_path = save_path
+        self.video_fname = video_fname
+        self.full_path = "{folder}{name}.{format}".format(self.save_path,
+                                                          self.video_fname,
+                                                          self.sub_format)
+
+
+    def download(self):
+        """
+
+
+        """
+        if not os.path.isdir(self.save_path):
+            try:
+                os.mkdir(self.save_path)
+            except IOError:
+                print("Can't create subfolder. Check that you have write "
+                      "access for {}".format(self.save_path))
+
+        sub_zip_file = request.urlopen(self.download_link)
+        sub_gzip = gzip.GzipFile(fileobj=StringIO(sub_zip_file.read()))
+        subtitle_content = sub_gzip.read()
+        try:
+            with open(self.full_path, 'wb') as subtitle_output:
+                subtitle_output.write(subtitle_content)
+            print("Downloaded subtitle...")
+        except IOError:
+            print("Couldn't save subtitle, permissions issue?")
+
+
+    def __repr__(self):
+        return "<Sub {}S{}E{}>".format(self.MovieName,
+                                       self.SeriesSeason,
+                                       self.SeriesEpisode)
 
 
 class Video(object):
     def __init__(self, file_path):
+        """
+
+        :param file_path:
+        """
         self.file_path = file_path
         self.file_name = os.path.basename(file_path)
         self.sub_path = os.path.dirname(os.path.abspath(file_path))
         self.sub_path += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
         self.file_size = os.path.getsize(file_path)
-        self.file_hash = self.__set_file_hash()
-        self.subtitle_exists=self.__sub_exists()
-        self.subtitles=[]
 
+        self.file_search_query = None
+        self.hash_search_query = None
         self.ep_info = guessit.guess_episode_info(file_path)
 
+        self.__set_queries()
+        self.subtitles = []
 
-        try: # ep_info might raise key error
-            _f_query = "{} S{:02d}E{:02d}".format(self.ep_info['series'],
-                                                       int(self.ep_info['season']),
-                                                       int(self.ep_info['episodeNumber']))
-            self.file_search_query = [{'sublanguageid': sub_language,
-                                       'query': _f_query,
-                                       'season': self.ep_info['season'],
-                                       'episode': self.ep_info['episodeNumber']}]
-        except KeyError:
-            self.file_hash_query=None
-
-        if self.file_hash:
-            # if/elif/elif:
-            # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
-            # If you define imdbid, then moviehash, moviebytesize and query is ignored.
-            # If you define query, then moviehash, moviebytesize and imdbid is ignored.
-            self.hash_search_query = [{"sublanguageid": sub_language,
-                                       'moviehash': self.file_hash,
-                                       'moviebytesize': self.file_size}]
-
-        else:
-            self.hash_search_query=None
+    @property
+    def file_hash(self):
+        """
 
 
-
-    def __set_file_hash(self):
+        :return: :rtype:
+        """
         if self.file_size < 65536 * 2:
             return None
         try:
@@ -126,11 +155,11 @@ class Video(object):
                 return "%016x" % file_hash
 
         except IOError:
-            print "ioerror"
             return None
 
 
-    def __sub_exists(self):
+    @property
+    def sub_exists(self):
         """
         This script will download subtitles as
         original_filename.original_extension.subtitle_extension
@@ -150,43 +179,147 @@ class Video(object):
 
         return False
 
-    def get_subtitles(self, json_data):
-        if not json_data['data']: # There is no subtitle data in the response
+    def __set_queries(self):
+        """
+
+
+        """
+        try:  # ep_info might raise key error
+            _f_query = "{} S{:02d}E{:02d}".format(self.ep_info['series'],
+                                                  int(self.ep_info['season']),
+                                                  int(self.ep_info['episodeNumber']))
+            self.file_search_query = [{'sublanguageid': sub_language,
+                                       'query': _f_query,
+                                       'season': self.ep_info['season'],
+                                       'episode': self.ep_info['episodeNumber']}]
+        except KeyError:
+            pass  # file_Search_query is already None - no need to modify it
+
+        if self.file_hash:
+            # if/elif/elif:
+            # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
+            # If you define imdbid, then moviehash, moviebytesize and query is ignored.
+            # If you define query, then moviehash, moviebytesize and imdbid is ignored.
+            self.hash_search_query = [{"sublanguageid": sub_language,
+                                       'moviehash': self.file_hash,
+                                       'moviebytesize': self.file_size}]
+
+
+    def parse_response(self, full_json):
+        """
+
+
+        :rtype : None
+        :param full_json:
+        :return: :rtype:
+        """
+        if not full_json or not full_json['data']:  # There is no subtitle data in the response
             return
 
-        for sub_json in json_data['data']:
-            self.subtitles.append(Subtitle(sub_json))
+        for subtitle_json in full_json['data']:
+            self.subtitles.append(Subtitle(subtitle_json,
+                                           self.sub_path,
+                                           self.file_name)
+            )
 
+
+    def __repr__(self):
+        return "<Video {}>".format(self.file_name)
+
+
+class OpenSubtitlesServer(object):
+    def __init__(self, server="http://api.opensubtitles.org/xml-rpc",
+                 ua='ossubd',
+                 language="eng"):
+        """
+
+        :param server:
+        :param ua:
+        :param language:
+        """
+        self.language = language
+        self.user_agent = ua
+        self.token = None
+        self.logged_in = False
+        self.server = ServerProxy(server)
+
+    def login(self, login_attempts=3):
+        """
+
+        :param login_attempts:
+        """
+        tries = login_attempts
+        session = None
+        while not session and tries > 0:
+            try:
+                session = self.server.LogIn('', '', self.language, self.user_agent)
+            except:
+                print("Exception while logging in to API. "
+                      "Trying again - {} attempt(s) left.".format(tries))
+                time.sleep(2)
+                tries -= 1
+
+        if session is None or session['status'] != '200 OK':
+            print("Error logging in to opensubtitles API. "
+                  "Error {}".format(session['status']))
+        else:
+            try:
+                self.token = session['token']
+                self.logged_in = True
+            except KeyError:
+                print("Token not found.")
+
+    def log_out(self):
+        """
+
+
+        """
+        if self.token:
+            self.server.LogOut(self.token)
+            self.token = None
+            self.logged_in = False
+
+    def query(self, query, attempts=2, desc="Search query"):
+        """
+
+        :param query:
+        :param tries:
+        :param desc:
+        :return: :rtype:
+        """
+        results = None
+        attempts_left = attempts
+        while not results and attempts_left > 0:
+            results = self.server.SearchSubtitles(self.token, query)
+            if results['status'] != '200 OK':
+                results = None
+                attempts_left -= 1
+            else:
+                return results
+        print("{} failed...".format(desc))
+        return None
+
+    def __repr__(self):
+        return "<Server {}>".format(self.token)
 
 
 def search_subtitles(file_list):
-    #TODO: Instead of performing search for each file, construct queries and execute them all at once
     """
-    :rtype : object
-    :param file_list: list of video files(with full path) for which to search subtitles
+
+    :param file_list:
     """
-    #TODO: Check if user is over the download limit
-    #http://trac.opensubtitles.org/projects/opensubtitles/wiki/XMLRPC#ServerInfo
-    try:
-        session = server.LogIn("", "", sub_language, useragent)
-    except:
-        print("Error logging in to opensubtiles API.")
+    server = OpenSubtitlesServer()
+    server.login()
+
+    if not server.logged_in:
         exit()
 
-    if session['status'] != "200 OK":
-        print session['status']
-        print("Error logging in to opensubtiles API.", session['status'])
-        exit()
-    else:
-        token = session["token"]
-
-
-    for count,file_path in enumerate(file_list):
+    for count, file_path in enumerate(file_list):
 
         video = Video(file_path)
 
         print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(video.file_name,
-                                                                          count+1,
+                                                                          count + 1,
                                                                           len(file_list)))
 
         if not OVERWRITE and video.subtitle_exists:
@@ -194,18 +327,12 @@ def search_subtitles(file_list):
             continue
 
         if video.file_search_query:
-            query_results = server.SearchSubtitles(token, video.file_search_query)
-            if query_results['status'] != "200 OK":  # FIXME: This doesn't happen, like, ever.
-                print("Query search failed ", query_results['status'])
-            else:
-                video.get_subtitles(query_results)
+            video.get_subtitles(server.query(video.file_search_query,
+                                             desc="File Based Search"))
 
         if video.hash_search_query:
-            hash_results = server.SearchSubtitles(token, video.hash_search_query)
-            if hash_results['status'] != '200 OK':
-                print('"Hash search failed', hash_results['status'])
-            else:
-                video.get_subtitles(hash_results)
+            video.get_subtitles(server.query(video.hash_search_query,
+                                             desc="Hash Based Search"))
 
         if (not video.hash_search_query and not video.file_search_query) or video.subtitles == []:
             print("Couldn't find subtitles in {} for {}".format(sub_language, file_path))
@@ -213,54 +340,48 @@ def search_subtitles(file_list):
 
         download_prompt(video)
 
-    server.LogOut(token)
+    server.log_out()
 
 
-def download_prompt(subtitles_list, ep_info):
+def download_prompt(video):
     """
-    :param subtitles_list: list containing dicts of each subtitle returned from opensubtitles api
-    :param ep_info:  dict containing episode info; most important -- 'series' - tv show name and 'title' -ep title
-    :return: Nothing
+
+    :param video:
+    :return: :rtype:
     """
     if AUTO_DOWNLOAD:
-        auto_download(subtitles_list, ep_info)
+        auto_download(video)
         return
+
     user_choice = None
-    possible_choices = ["a", "q", "s", ""]
-    sub_dict = {}
-    count = 1
+    possible_choices = ["a", "q", "s", ""] + [i for i in range(len(video.subtitles))]  # py2/3
+
     print("{:<2}: {:^10} {:<} {}\n{}".format("#", "Downloads", "Subtitle Name", " * - Sync subtitle", "-" * 50))
 
-    for subtitle in subtitles_list:
-        sync = subtitle['MatchedBy'] == 'moviehash'
-        print("{:<2}: {:^10} {:<}".format(count,
-                                          subtitle["SubDownloadsCnt"] + "*" if sync else subtitle["SubDownloadsCnt"],
-                                          subtitle["SubFileName"]))
-        sub_dict[count] = subtitle
-        count += 1
-    possible_choices.extend(list(sub_dict.keys()))
+    for num, subtitle in enumerate(video.subtitles):
+        print("{:<2}: {:^10} {:<}".format(num,
+                                          subtitle.download_count + "*" if subtitle.synced else "",
+                                          subtitle.sub_filename)
+        )
 
     while user_choice not in possible_choices:
-        prompt_text = "return - download first, 's' - skip, 'a' - auto choose, 'q' - quit \n>>>"
-
-        if version_info >= (3, 0):
-            user_input = input(prompt_text)
-        else:
-            user_input = raw_input(prompt_text)
+        user_input = input("return - download first, 's' - skip, "
+                           "'a' - auto choose, 'q' - quit \n>>>")
 
         user_choice = int(user_input) if user_input.isdigit() else user_input.lower()
 
         if user_choice not in possible_choices:
-            print("invalid input")
+            print("Invalid input.")
 
     if type(user_choice) is int:
-        if sub_dict.get(user_choice, False):
-            download_subtitle(sub_dict[user_choice], ep_info)
-        else:
-            print("Invalid input only subtitle choices from {} to {} are available".format(1, count))
+        try:
+            video.subtitles[user_choice].download()
+        except IndexError:
+            print("Invalid input only subtitle choices "
+                  "from {} to {} are available".format(0, len(video.subtitles)))
 
     elif user_choice.lower() == "a":
-        auto_download(subtitles_list, ep_info)
+        auto_download(video)
 
     elif user_choice.lower() == "q":
         print('Quitting')
@@ -270,92 +391,49 @@ def download_prompt(subtitles_list, ep_info):
         print("skipping...")
 
     elif user_choice == "":
-        download_subtitle(sub_dict[1], ep_info)
+        video.subtitles[0].download()
 
     else:
         print("Invalid input")
 
 
-def auto_download(subtitles_list, ep_info):
+def auto_download(video):
     """
-    :param subtitles_list: list containing (all) subtitle dicts returned from opensubtitles
-    :param ep_info: episode info dict
-    ep_info example:
-    {u'mimetype': u'video/x-flv', u'episodeNumber': 11, u'container': u'flv',
-    u'title': u'Adventures in Babysitting', u'series': u'Supernatural',
-    u'type': u'episode', u'season': 7, u'filename':<full file path>}
-    """
-    # MatchedBy can be: moviehash, imdbid, tag, fulltext
 
+    :param video:
+    """
     sequence = difflib.SequenceMatcher(None, "", "")
     possible_matches = []
-    best_choice = {"best": None, "downloads": 0}
+    best_choice = None
 
-    for subtitle in subtitles_list:
-        # Change title from i.e. "The Office (US) Dunder Mifflin Infinity" to the office (us) dunder mifflin infinity
-        try:
-            subtitle_title_name = subtitle['MovieName'].replace("'", "").replace('"', '').lower()
-            episode_title_name = "{} {}".format(ep_info['series'].lower(), ep_info['title'].lower())
-        except KeyError:
-            # Those keys don't exist, we can't compare sub info with anything
-            subtitle_title_name = "0"
-            episode_title_name = "1"
-            # TV Show name and title are separate keys in ep_info dict, not like in sub dict
+    for subtitle in video.subtitles:
+
+        subtitle_title_name = re.sub(r'[^a-zA-Z0-9\s+]', '', subtitle.movie_name)
+        episode_title_name = "{} {}".format(video.ep_info.get('series', "0").lower(),
+                                            video.ep_info.get('title', "0").lower()
+        )
 
         sequence.set_seqs(subtitle_title_name, episode_title_name)
         if sequence.ratio() > MATCH_CUTOFF:
             # Names of series title and episode names match enough, should be valid subtitle
             possible_matches.append(subtitle)
 
-        if subtitle['MatchedBy'] == 'moviehash':
+        if subtitle.synced:
             possible_matches.append(subtitle)
 
     for sub in possible_matches:
-        if sub['MatchedBy'] == 'moviehash':
-            best_choice['best'] = sub
-            best_choice['downloads'] = "Movie hash"
-            break
-        if int(sub["SubDownloadsCnt"]) > best_choice["downloads"]:
-            best_choice["best"] = sub
-            best_choice["downloads"] = sub["SubDownloadsCnt"]
+        if sub.synced:
+            best_choice = sub
+        if sub.download_count > best_choice.download_count:
+            if best_choice.synced and not sub.synced:
+                continue
+            else:
+                best_choice = sub
 
-    if best_choice["best"] is not None:
-        download_subtitle(best_choice["best"], ep_info)
+    if best_choice:
+        best_choice.download()
     else:
-        print("Can't find correct subtitle")
-
-
-# noinspection PyBroadException
-def download_subtitle(subtitle_info, ep_info):
-    """
-    :param subtitle_info: dict of the subtitle with sub info such as download link etc.
-    :param ep_info: episode info dict
-    ep_info example:
-    {u'mimetype': u'video/x-flv', u'episodeNumber': 11, u'container': u'flv',
-    u'title': u'Adventures in Babysitting', u'series': u'Supernatural',
-    u'type': u'episode', u'season': 7, u'filename':<full file path>}
-    """
-    download_url = subtitle_info["SubDownloadLink"]
-    subtitle_folder = ep_info['sub_folder']
-    subtitle_name = subtitle_folder + os.path.basename(ep_info["filename"])
-    subtitle_name += "." + subtitle_info["SubFormat"]  # .srt only on opensubtitles?
-
-    if not os.path.isdir(subtitle_folder):
-        os.mkdir(subtitle_folder)
-        # TODO: Add exception handling, if we can't create folder we won't be able to save sub there (probably)
-
-    # Not in try/except because this shouldn't ever fail, and if it does other subtitles
-    # won't be downloaded too so ignoring it seems useless. letting it to raise
-    # error makes more sense
-    sub_zip_file = request.urlopen(download_url)
-    sub_gzip = gzip.GzipFile(fileobj=StringIO(sub_zip_file.read()))
-    subtitle_content = sub_gzip.read()
-    try:
-        with open(subtitle_name, 'wb') as subtitle_output:
-            subtitle_output.write(subtitle_content)
-        print("Downloaded subtitle...")
-    except:
-        print("Couldn't save subtitle, permissions issue?")
+        print("Can't find best subtitle automatically.")
 
 
 if __name__ == '__main__':
