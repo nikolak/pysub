@@ -19,11 +19,11 @@ import guessit
 if sys.version >= '3':
     import urllib.request as request
     from io import StringIO
-    from xmlrpc.client import ServerProxy
+    from xmlrpc.client import ServerProxy, ProtocolError
 else:  # Assume 2.x (Works on 2.7.x, not sure about older versions)
     import urllib2 as request
     from StringIO import StringIO
-    from xmlrpclib import ServerProxy
+    from xmlrpclib import ServerProxy, ProtocolError
 
     input = raw_input
 
@@ -38,8 +38,8 @@ FILE_EXT = [
     '.wmv', '.wmx', '.wrap', '.wvx', '.wx', '.x264', '.xvid'
 ]
 
-SUB_EXT = ['.aqt', '.gsub', '.jss', '.sub', '.pjs', '.psb', '.rt', '.smi', '.stl', '.ssf',
-           '.srt', '.ssa', '.ass', '.sub', '.usf', ]
+SUB_EXT = ['.aqt', '.gsub', '.jss', '.sub', '.pjs', '.psb', '.rt',
+           '.smi', '.stl', '.ssf', '.srt', '.ssa', '.ass', '.sub', '.usf', ]
 
 OVERWRITE = False
 AUTO_DOWNLOAD = False
@@ -58,11 +58,11 @@ class Subtitle(object):
         :param save_path:
         :param video_fname:
         """
-        self.ISO639 = json_data.get('ISO639')
-        self.MatchedBy = json_data.get('MatchedBy')
-        self.synced = self.MatchedBy == "moviehash"
-        self.movie_name = json_data.get('MovieName', "")  # episode name or movie name
-        self.episode_num = json_data.get('SeriesEpisode')  # episode number
+        self.iso639 = json_data.get('ISO639')
+        self.matched_by = json_data.get('MatchedBy')
+        self.synced = self.matched_by == "moviehash"
+        self.movie_name = json_data.get('MovieName', "")
+        self.episode_num = json_data.get('SeriesEpisode')
         self.season_num = json_data.get('SeriesSeason')
         self.download_link = json_data.get('SubDownloadLink')
         self.download_count = json_data.get('SubDownloadsCnt')
@@ -74,7 +74,6 @@ class Subtitle(object):
                                                           self.video_fname,
                                                           self.sub_format)
 
-
     def download(self):
         """
 
@@ -84,8 +83,9 @@ class Subtitle(object):
             try:
                 os.mkdir(self.save_path)
             except IOError:
-                print("Can't create subfolder. Check that you have write "
-                      "access for {}".format(self.save_path))
+                print("Can't create subfolder. "
+                      "Check that you have write access for "
+                      "{}".format(self.save_path))
 
         sub_zip_file = request.urlopen(self.download_link)
         sub_gzip = gzip.GzipFile(fileobj=StringIO(sub_zip_file.read()))
@@ -97,11 +97,10 @@ class Subtitle(object):
         except IOError:
             print("Couldn't save subtitle, permissions issue?")
 
-
     def __repr__(self):
-        return "<Sub {}S{}E{}>".format(self.MovieName,
-                                       self.SeriesSeason,
-                                       self.SeriesEpisode)
+        return "<Sub {}S{}E{}>".format(self.movie_name,
+                                       self.season_num,
+                                       self.episode_num)
 
 
 class Video(object):
@@ -157,7 +156,6 @@ class Video(object):
         except IOError:
             return None
 
-
     @property
     def sub_exists(self):
         """
@@ -204,7 +202,6 @@ class Video(object):
                                        'moviehash': self.file_hash,
                                        'moviebytesize': self.file_size}]
 
-
     def parse_response(self, full_json):
         """
 
@@ -219,9 +216,7 @@ class Video(object):
         for subtitle_json in full_json['data']:
             self.subtitles.append(Subtitle(subtitle_json,
                                            self.sub_path,
-                                           self.file_name)
-            )
-
+                                           self.file_name))
 
     def __repr__(self):
         return "<Video {}>".format(self.file_name)
@@ -253,15 +248,13 @@ class OpenSubtitlesServer(object):
         while not session and tries > 0:
             try:
                 session = self.server.LogIn('', '', self.language, self.user_agent)
-            except:
-                print("Exception while logging in to API. "
-                      "Trying again - {} attempt(s) left.".format(tries))
+            except ProtocolError as err:
+                print("Error while logging in to API. {}".format(err.errmsg))
                 time.sleep(2)
                 tries -= 1
 
         if session is None or session['status'] != '200 OK':
-            print("Error logging in to opensubtitles API. "
-                  "Error {}".format(session['status']))
+            print("Login to OpenSubtitles API failed...")
         else:
             try:
                 self.token = session['token']
@@ -283,7 +276,7 @@ class OpenSubtitlesServer(object):
         """
 
         :param query:
-        :param tries:
+        :param attempts:
         :param desc:
         :return: :rtype:
         """
@@ -322,17 +315,17 @@ def search_subtitles(file_list):
                                                                           count + 1,
                                                                           len(file_list)))
 
-        if not OVERWRITE and video.subtitle_exists:
+        if not OVERWRITE and video.sub_exists:
             print("Subtitle already exists")
             continue
 
         if video.file_search_query:
-            video.get_subtitles(server.query(video.file_search_query,
-                                             desc="File Based Search"))
+            video.parse_response(server.query(video.file_search_query,
+                                              desc="File Based Search"))
 
         if video.hash_search_query:
-            video.get_subtitles(server.query(video.hash_search_query,
-                                             desc="Hash Based Search"))
+            video.parse_response(server.query(video.hash_search_query,
+                                              desc="Hash Based Search"))
 
         if (not video.hash_search_query and not video.file_search_query) or video.subtitles == []:
             print("Couldn't find subtitles in {} for {}".format(sub_language, file_path))
@@ -354,15 +347,15 @@ def download_prompt(video):
         return
 
     user_choice = None
-    possible_choices = ["a", "q", "s", ""] + [i for i in range(len(video.subtitles))]  # py2/3
+    possible_choices = ["a", "q", "s", ""]
+    possible_choices.extend(range(len(video.subtitles)))  # py2/3
 
     print("{:<2}: {:^10} {:<} {}\n{}".format("#", "Downloads", "Subtitle Name", " * - Sync subtitle", "-" * 50))
 
     for num, subtitle in enumerate(video.subtitles):
         print("{:<2}: {:^10} {:<}".format(num,
                                           subtitle.download_count + "*" if subtitle.synced else "",
-                                          subtitle.sub_filename)
-        )
+                                          subtitle.sub_filename))
 
     while user_choice not in possible_choices:
         user_input = input("return - download first, 's' - skip, "
