@@ -39,18 +39,20 @@ else:  # Assume 2.x (Works on 2.7.x, not sure about older versions)
     input = raw_input
 
 FILE_EXT = [
-    '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx', '.avchd', '.avi',
-    '.bik', '.bix', '.box', '.cam', '.dat', '.divx', '.dmf', '.dv', '.dvr-ms', '.evo',
-    'flc', '.fli', '.flic', '.flv', '.flx', '.gvi', '.gvp', '.h264', '.m1v', '.m2p',
-    '.m2ts', '.m2v', '.m4e', '.m4v', '.mjp', '.mjpeg', '.mjpg', '.mkv', '.moov', '.mov',
-    '.movhd', '.movie', '.movx', '.mp4', '.mpe', '.mpeg', '.mpg', '.mpv', '.mpv2', '.mxf',
-    '.nsv', '.nut', '.ogg', '.ogm', '.omf', '.ps', '.qt', '.ram', '.rm', '.rmvb',
-    '.swf', '.ts', '.vfw', '.vid', '.video', '.viv', '.vivo', '.vob', '.vro', '.wm',
-    '.wmv', '.wmx', '.wrap', '.wvx', '.wx', '.x264', '.xvid'
+    '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx',
+    '.avchd', '.avi','.bik', '.bix', '.box', '.cam', '.dat', '.divx',
+    '.dmf', '.dv', '.dvr-ms', '.evo', 'flc', '.fli', '.flic', '.flv',
+    '.flx', '.gvi', '.gvp', '.h264', '.m1v', '.m2p','.m2ts', '.m2v',
+    '.m4e', '.m4v', '.mjp', '.mjpeg', '.mjpg', '.mkv', '.moov', '.mov',
+    '.movhd', '.movie', '.movx', '.mp4', '.mpe', '.mpeg', '.mpg', '.mpv',
+    '.mpv2', '.mxf','.nsv', '.nut', '.ogg', '.ogm', '.omf', '.ps', '.qt',
+    '.ram', '.rm', '.rmvb','.swf', '.ts', '.vfw', '.vid', '.video', '.viv',
+    '.vivo', '.vob', '.vro', '.wm','.wmv', '.wmx', '.wrap', '.wvx', '.wx',
+    '.x264', '.xvid'
 ]
 
-SUB_EXT = ['.aqt', '.gsub', '.jss', '.sub', '.pjs', '.psb', '.rt',
-           '.smi', '.stl', '.ssf', '.srt', '.ssa', '.ass', '.sub', '.usf']
+SUB_EXT = ['.aqt', '.gsub', '.jss', '.sub', '.pjs', '.psb', '.rt', '.smi',
+           '.stl', '.ssf', '.srt', '.ssa', '.ass', '.sub', '.usf']
 
 OVERWRITE = False
 AUTO_DOWNLOAD = False
@@ -76,7 +78,7 @@ class Subtitle(object):
         self.episode_num = json_data.get('SeriesEpisode')
         self.season_num = json_data.get('SeriesSeason')
         self.download_link = json_data.get('SubDownloadLink')
-        self.download_count = json_data.get('SubDownloadsCnt', -1)
+        self.download_count = int(json_data.get('SubDownloadsCnt', -1))
         self.sub_format = json_data.get('SubFormat')
         self.sub_filename = json_data.get('SubFileName')
         self.save_path = save_path
@@ -183,7 +185,8 @@ class Video(object):
                                  "".join(self.file_name.split('.')[:-1]))
 
         for sub_format in SUB_EXT:
-            if os.path.exists(type_1 + sub_format) or os.path.exists(type_2 + sub_format):
+            if os.path.exists(type_1 + sub_format) or \
+                    os.path.exists(type_2 + sub_format):
                 return True
 
         return False
@@ -221,7 +224,7 @@ class Video(object):
         :param full_json:
         :return: :rtype:
         """
-        if not full_json or not full_json['data']:  # There is no subtitle data in the response
+        if not full_json or not full_json['data']:
             return
 
         for subtitle_json in full_json['data']:
@@ -258,7 +261,9 @@ class OpenSubtitlesServer(object):
         session = None
         while not session and tries > 0:
             try:
-                session = self.server.LogIn('', '', self.language, self.user_agent)
+                session = self.server.LogIn('', '',
+                                            self.language,
+                                            self.user_agent)
             except ProtocolError as err:
                 print("Error while logging in to API. {}".format(err.errmsg))
                 time.sleep(2)
@@ -322,9 +327,10 @@ def search_subtitles(file_list):
 
         video = Video(file_path)
 
-        print("-" * 50 + '\nSearching subtitle for "{}" | ({}/{})'.format(video.file_name,
-                                                                          count + 1,
-                                                                          len(file_list)))
+        print("-" * 50 + '\nSearching subtitle for '
+                         '"{}" | ({}/{})'.format(video.file_name,
+                                                 count + 1,
+                                                 len(file_list)))
 
         if not OVERWRITE and video.sub_exists:
             print("Subtitle already exists")
@@ -338,8 +344,10 @@ def search_subtitles(file_list):
             video.parse_response(server.query(video.hash_search_query,
                                               desc="Hash Based Search"))
 
-        if (not video.hash_search_query and not video.file_search_query) or video.subtitles == []:
-            print("Couldn't find subtitles in {} for {}".format(sub_language, file_path))
+        if (not video.hash_search_query and not video.file_search_query) \
+                or video.subtitles == []:
+            print("Couldn't find subtitles in {} for {}".format(sub_language,
+                                                                file_path))
             continue
 
         download_prompt(video)
@@ -361,11 +369,12 @@ def download_prompt(video):
     possible_choices = ["a", "q", "s", ""]
     possible_choices.extend(range(len(video.subtitles)))  # py2/3
 
-    print("{:<2}: {:^10} {:<} {}\n{}".format("#", "Downloads", "Subtitle Name", " * - Sync subtitle", "-" * 50))
+    print("{:<2}: {:^10} {:<} {}\n{}".format("#", "Downloads", "Subtitle Name",
+                                             " * - Sync subtitle", "-" * 50))
 
     for num, subtitle in enumerate(video.subtitles):
         print("{:<2}: {:^10} {:<}".format(num,
-                                          subtitle.download_count+"*" if subtitle.synced else "",
+                                          str(subtitle.download_count)+['','*'][subtitle.synced],
                                           subtitle.sub_filename))
 
     while user_choice not in possible_choices:
@@ -429,6 +438,7 @@ def auto_download(video):
         if not best_choice:
             best_choice=sub
         elif sub.download_count > best_choice.download_count:
+            print "{}>{}".format(sub.download_count, best_choice.download_count)
             if best_choice.synced and sub.synced is False:
                 continue
             else:
