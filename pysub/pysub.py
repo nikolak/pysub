@@ -40,14 +40,14 @@ else:  # Assume 2.x (Works on 2.7.x, not sure about older versions)
 
 FILE_EXT = [
     '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx',
-    '.avchd', '.avi','.bik', '.bix', '.box', '.cam', '.dat', '.divx',
+    '.avchd', '.avi', '.bik', '.bix', '.box', '.cam', '.dat', '.divx',
     '.dmf', '.dv', '.dvr-ms', '.evo', 'flc', '.fli', '.flic', '.flv',
-    '.flx', '.gvi', '.gvp', '.h264', '.m1v', '.m2p','.m2ts', '.m2v',
+    '.flx', '.gvi', '.gvp', '.h264', '.m1v', '.m2p', '.m2ts', '.m2v',
     '.m4e', '.m4v', '.mjp', '.mjpeg', '.mjpg', '.mkv', '.moov', '.mov',
     '.movhd', '.movie', '.movx', '.mp4', '.mpe', '.mpeg', '.mpg', '.mpv',
-    '.mpv2', '.mxf','.nsv', '.nut', '.ogg', '.ogm', '.omf', '.ps', '.qt',
-    '.ram', '.rm', '.rmvb','.swf', '.ts', '.vfw', '.vid', '.video', '.viv',
-    '.vivo', '.vob', '.vro', '.wm','.wmv', '.wmx', '.wrap', '.wvx', '.wx',
+    '.mpv2', '.mxf', '.nsv', '.nut', '.ogg', '.ogm', '.omf', '.ps', '.qt',
+    '.ram', '.rm', '.rmvb', '.swf', '.ts', '.vfw', '.vid', '.video', '.viv',
+    '.vivo', '.vob', '.vro', '.wm', '.wmv', '.wmx', '.wrap', '.wvx', '.wx',
     '.x264', '.xvid'
 ]
 
@@ -83,9 +83,10 @@ class Subtitle(object):
         self.sub_filename = json_data.get('SubFileName')
         self.save_path = save_path
         self.video_fname = video_fname
-        self.full_path = "{folder}{name}.{format}".format(folder=self.save_path,
-                                                          name=self.video_fname,
-                                                          format=self.sub_format)
+        self.full_path = "{folder}{name}.{format}".format(
+            folder=self.save_path,
+            name=self.video_fname,
+            format=self.sub_format)
 
     def download(self):
         """
@@ -199,11 +200,13 @@ class Video(object):
         try:  # ep_info might raise key error
             _f_query = "{} S{:02d}E{:02d}".format(self.ep_info['series'],
                                                   int(self.ep_info['season']),
-                                                  int(self.ep_info['episodeNumber']))
+                                                  int(self.ep_info[
+                                                      'episodeNumber']))
             self.file_search_query = [{'sublanguageid': sub_language,
                                        'query': _f_query,
                                        'season': self.ep_info['season'],
-                                       'episode': self.ep_info['episodeNumber']}]
+                                       'episode': self.ep_info[
+                                           'episodeNumber']}]
         except KeyError:
             pass  # file_Search_query is already None - no need to modify it
 
@@ -374,14 +377,16 @@ def download_prompt(video):
 
     for num, subtitle in enumerate(video.subtitles):
         print("{:<2}: {:^10} {:<}".format(num,
-                                          str(subtitle.download_count)+['','*'][subtitle.synced],
+                                          str(subtitle.download_count) +
+                                          ['', '*'][subtitle.synced],
                                           subtitle.sub_filename))
 
     while user_choice not in possible_choices:
         user_input = input("return - download first, 's' - skip, "
                            "'a' - auto choose, 'q' - quit \n>>>")
 
-        user_choice = int(user_input) if user_input.isdigit() else user_input.lower()
+        user_choice = int(
+            user_input) if user_input.isdigit() else user_input.lower()
 
         if user_choice not in possible_choices:
             print("Invalid input.")
@@ -391,7 +396,8 @@ def download_prompt(video):
             video.subtitles[user_choice].download()
         except IndexError:
             print("Invalid input only subtitle choices "
-                  "from {} to {} are available".format(0, len(video.subtitles)))
+                  "from {} to {} are available".format(0,
+                                                       len(video.subtitles)))
 
     elif user_choice.lower() == "a":
         auto_download(video)
@@ -421,14 +427,15 @@ def auto_download(video):
 
     for subtitle in video.subtitles:
 
-        subtitle_title_name = re.sub(r'[^a-zA-Z0-9\s+]', '', subtitle.movie_name).lower()
-        episode_title_name = "{} {}".format(video.ep_info.get('series', "0").lower(),
-                                            video.ep_info.get('title', "0").lower()
+        subtitle_title_name = re.sub(r'[^a-zA-Z0-9\s+]', '',
+                                     subtitle.movie_name).lower()
+        episode_title_name = "{} {}".format(
+            video.ep_info.get('series', "0").lower(),
+            video.ep_info.get('title', "0").lower()
         )
 
         sequence.set_seqs(subtitle_title_name, episode_title_name)
         if sequence.ratio() > MATCH_CUTOFF:
-            # Names of series title and episode names match enough, should be valid subtitle
             possible_matches.append(subtitle)
 
         if subtitle.synced:
@@ -436,9 +443,10 @@ def auto_download(video):
 
     for sub in possible_matches:
         if not best_choice:
-            best_choice=sub
+            best_choice = sub
         elif sub.download_count > best_choice.download_count:
-            print "{}>{}".format(sub.download_count, best_choice.download_count)
+            print "{}>{}".format(sub.download_count,
+                                 best_choice.download_count)
             if best_choice.synced and sub.synced is False:
                 continue
             else:
@@ -451,7 +459,8 @@ def auto_download(video):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Subtitle downloader for TV Shows')
+    parser = argparse.ArgumentParser(
+        description='Subtitle downloader for TV Shows')
     parser.add_argument("folder", type=str,
                         help="Folder which will be scanned for allowed video files, "
                              "and subtitles for those files will be downloaded")
@@ -473,7 +482,7 @@ if __name__ == '__main__':
 
     directory = args.folder
     if os.path.isfile(directory):
-        valid_files = [directory]  # single file, although its name is directory
+        valid_files = [directory]
     elif os.path.isdir(directory):
         directory += os.sep if not directory.endswith(os.sep) else ""
 
@@ -489,8 +498,9 @@ if __name__ == '__main__':
         if len(args.language) == 3:
             sub_language = args.language.lower()
         else:
-            print('Argument not ISO 639-1 Code check this for list of valid codes'
-                  ' http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes')
+            print(
+                'Argument not ISO 639-1 Code check this for list of valid codes'
+                ' http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes')
             exit()
 
     if args.auto:
