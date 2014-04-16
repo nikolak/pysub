@@ -445,8 +445,6 @@ def auto_download(video):
         if not best_choice:
             best_choice = sub
         elif sub.download_count > best_choice.download_count:
-            print "{}>{}".format(sub.download_count,
-                                 best_choice.download_count)
             if best_choice.synced and sub.synced is False:
                 continue
             else:
