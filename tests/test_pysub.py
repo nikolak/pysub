@@ -13,21 +13,20 @@ import os
 import guessit
 import sys
 
-if sys.version>='3':
-    long=int
-
 
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 
 from pysub import pysub
 
 
-class TestPysub(unittest.TestCase):
+class TestPysubVideo(unittest.TestCase):
 
     def setUp(self):
         self.filename="Awesome Test - [01x01] - Hopefully it passes.avi"
+
         with open(self.filename, 'w') as tmp_file:
             tmp_file.write("dummy"*30000)
+
         self.video=pysub.Video(self.filename)
         self.ep_info=guessit.guess_episode_info(self.filename)
 
@@ -52,7 +51,7 @@ class TestPysub(unittest.TestCase):
         self.assertEqual([{'query': 'Awesome Test S01E01', 'sublanguageid': 'eng', 'episode': 1, 'season': 1}],
                          self.video.file_search_query)
 
-        self.assertEqual([{'moviebytesize': long(150000), 'sublanguageid': 'eng', 'moviehash': 'b7b7afc0abb9e5b7'}],
+        self.assertEqual([{'moviebytesize': 150000L, 'sublanguageid': 'eng', 'moviehash': 'b7b7afc0abb9e5b7'}],
                          self.video.hash_search_query)
 
         self.assertEqual(self.ep_info, self.video.ep_info)
@@ -71,16 +70,21 @@ class TestPysub(unittest.TestCase):
 
 class TestServerInstance(object):
 
-    def __init__(self):
-        self.server = SimpleXMLRPCServer(("localhost", 8000))
+    def __init__(self, port=8000):
+        self.server = SimpleXMLRPCServer(("localhost", port))
+        self.server.register_function(self.LogIn, 'LogIn')
+        self.server.register_function(self.LogOut, 'LogOut')
+        self.server.register_function(self.SearchSubtitles, 'SearchSubtitles')
+        self.server.serve_forever()
 
-    def login(self):
+
+    def LogIn(self):
         pass
 
-    def log_out(self):
+    def LogOut(self):
         pass
 
-    def query(self):
+    def SearchSubtitles(self):
         pass
 
 

@@ -17,26 +17,18 @@
 
 import os
 import re
-import sys
 import gzip
 import time
 import struct
 import difflib
+import urllib2
 import argparse
+
+from StringIO import StringIO
+from xmlrpclib import ServerProxy, ProtocolError
 
 import guessit
 
-
-if sys.version >= '3':
-    import urllib.request as request
-    from io import StringIO
-    from xmlrpc.client import ServerProxy, ProtocolError
-else:  # Assume 2.x (Works on 2.7.x, not sure about older versions)
-    import urllib2 as request
-    from StringIO import StringIO
-    from xmlrpclib import ServerProxy, ProtocolError
-
-    input = raw_input
 
 FILE_EXT = [
     '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx',
@@ -101,7 +93,7 @@ class Subtitle(object):
                       "Check that you have write access for "
                       "{}".format(self.save_path))
 
-        sub_zip_file = request.urlopen(self.download_link)
+        sub_zip_file = urllib2.urlopen(self.download_link)
         sub_gzip = gzip.GzipFile(fileobj=StringIO(sub_zip_file.read()))
         subtitle_content = sub_gzip.read()
         try:
@@ -382,8 +374,8 @@ def download_prompt(video):
                                           subtitle.sub_filename))
 
     while user_choice not in possible_choices:
-        user_input = input("return - download first, 's' - skip, "
-                           "'a' - auto choose, 'q' - quit \n>>>")
+        user_input = raw_input("return - download first, 's' - skip, "
+                               "'a' - auto choose, 'q' - quit \n>>>")
 
         user_choice = int(
             user_input) if user_input.isdigit() else user_input.lower()
