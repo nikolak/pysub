@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+"""
+Subtitle downloader using OpenSubtitles.org API
+"""
 # Copyright 2014 Nikola Kovacevic <nikolak@outlook.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import os
 import re
 import gzip
@@ -23,49 +26,84 @@ import struct
 import difflib
 import urllib2
 import argparse
-
 from StringIO import StringIO
 from xmlrpclib import ServerProxy, ProtocolError
 
 import guessit
 
 
-FILE_EXT = [
-    '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx',
-    '.avchd', '.avi', '.bik', '.bix', '.box', '.cam', '.dat', '.divx',
-    '.dmf', '.dv', '.dvr-ms', '.evo', 'flc', '.fli', '.flic', '.flv',
-    '.flx', '.gvi', '.gvp', '.h264', '.m1v', '.m2p', '.m2ts', '.m2v',
-    '.m4e', '.m4v', '.mjp', '.mjpeg', '.mjpg', '.mkv', '.moov', '.mov',
-    '.movhd', '.movie', '.movx', '.mp4', '.mpe', '.mpeg', '.mpg', '.mpv',
-    '.mpv2', '.mxf', '.nsv', '.nut', '.ogg', '.ogm', '.omf', '.ps', '.qt',
-    '.ram', '.rm', '.rmvb', '.swf', '.ts', '.vfw', '.vid', '.video', '.viv',
-    '.vivo', '.vob', '.vro', '.wm', '.wmv', '.wmx', '.wrap', '.wvx', '.wx',
-    '.x264', '.xvid'
-]
+CONFIG = {
+    'file_ext': [
+        '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx',
+        '.avchd', '.avi', '.bik', '.bix', '.box', '.cam', '.dat', '.divx',
+        '.dmf', '.dv', '.dvr-ms', '.evo', 'flc', '.fli', '.flic', '.flv',
+        '.flx', '.gvi', '.gvp', '.h264', '.m1v', '.m2p', '.m2ts', '.m2v',
+        '.m4e', '.m4v', '.mjp', '.mjpeg', '.mjpg', '.mkv', '.moov', '.mov',
+        '.movhd', '.movie', '.movx', '.mp4', '.mpe', '.mpeg', '.mpg', '.mpv',
+        '.mpv2', '.mxf', '.nsv', '.nut', '.ogg', '.ogm', '.omf', '.ps', '.qt',
+        '.ram', '.rm', '.rmvb', '.swf', '.ts', '.vfw', '.vid', '.video',
+        '.viv', '.vivo', '.vob', '.vro', '.wm', '.wmv', '.wmx', '.wrap',
+        '.wvx', '.wx', '.x264', '.xvid'
+    ],
 
-SUB_EXT = ['.aqt', '.gsub', '.jss', '.sub', '.pjs', '.psb', '.rt', '.smi',
-           '.stl', '.ssf', '.srt', '.ssa', '.ass', '.sub', '.usf']
+    # List of subtitle extensions to check when checking if subtitle already
+    # exists in the save location
+    'sub_ext': [
+        '.aqt', '.gsub', '.jss', '.sub', '.pjs', '.psb', '.rt', '.smi',
+        '.stl', '.ssf', '.srt', '.ssa', '.ass', '.sub', '.usf'
+    ],
 
-OVERWRITE = False
-AUTO_DOWNLOAD = False
-SUBFOLDER = None
-MATCH_CUTOFF = 0.75  # difflib ratio cutoff float range[0,1],
-# 0- strings don't have anything in common, 1- strings are identical
+    'overwrite': False,  # If subtitle exists in save location
+    'auto_download': False,
+    # Skip prompts, auto choose, continue on none found
+    'subfolder': None,  # Download to same directory as video if None
+    'cutoff': 0.75,
+    # Cutoff:
+    # 0 - Name of video and subtitle dont' have anything in common
+    # 1 - Name of video and subtitle are identical
 
-sub_language = 'eng'
+    # OpenSubtitles API default settings
+    'lang': 'eng',  # Language to search
+    'ua': 'ossubd',  # User Agent
+    'server': 'http://api.opensubtitles.org/xml-rpc',
+}
 
 
 class Subtitle(object):
+    """ Contains information about subtitle and handles downloading.
+
+    Subtitle class, stores subtitle information returned from
+    server as attributes and handles downloading and saving
+    the subtitle from server to location passed from video class.
+
+    Attributes:
+        synced: bool, true if subtitle is found by hash search
+        movie_name: str or None, name of the movie or Series name
+        episode_num: int or None, episode number
+        season_num: int or none, episode number
+        download_link: str or None, direct link to gziped subtitle
+        download_count: int, -1 if not found in json
+        sub_format: str or none, format of the subtitle, used in saving
+        sub_filename: str or none, name of subtitle file on subtitles
+        save_path: str, absolute path of folder to save subtitle to
+        full_path: str, absolute path of subtitle to save to
+
+    """
+
     def __init__(self, json_data, save_path, video_fname):
         """
+        Initialize Subtitle class with one subtitle json data and
+        information for saving subtitle
 
-        :param json_data:
-        :param save_path:
-        :param video_fname:
+        Args:
+            json_data: Part of json response from server containing
+                       only information for one subtitle, dict.
+            save_path: folder where to save subtitle, string
+            video_fname: original name of video file associated with
+                         this subtitle, string.
+
         """
-        self.iso639 = json_data.get('ISO639')
-        self.matched_by = json_data.get('MatchedBy')
-        self.synced = self.matched_by == "moviehash"
+        self.synced = json_data.get('MatchedBy') == "moviehash"
         self.movie_name = json_data.get('MovieName', "")
         self.episode_num = json_data.get('SeriesEpisode')
         self.season_num = json_data.get('SeriesSeason')
@@ -74,15 +112,15 @@ class Subtitle(object):
         self.sub_format = json_data.get('SubFormat')
         self.sub_filename = json_data.get('SubFileName')
         self.save_path = save_path
-        self.video_fname = video_fname
         self.full_path = "{folder}{name}.{format}".format(
             folder=self.save_path,
-            name=self.video_fname,
+            name=video_fname,
             format=self.sub_format)
 
     def download(self):
         """
-
+        Download subtitle to folder/file specified in self.full_path
+        variable.
 
         """
         if not os.path.isdir(self.save_path):
@@ -110,30 +148,75 @@ class Subtitle(object):
 
 
 class Video(object):
+    """Contains information for one video file
+
+    Video class contains attributes relevant for video file
+    Checks if subtitle exists and sets queries to be executed
+    when searching for subtitles.
+    This class also splits full server response to query
+    into smaller parts and instantiates new Subtitle class
+    for every subtitle found in the full server response.
+
+
+    Attributes:
+        file_path: absolute path of video file
+        file_name: name of file
+        file_size: file size in bytes
+        ep_info: dictionary from guessit module
+        subtitles: list of all subtitles found for this file
+
+        sub_path: full absolute path to where sub should be saved
+        file_hash: hash for this file or None
+        sub_exists: bool, subtitle exists in save location
+        file_search_query: query based on guessit data
+        hash_search_query: query based on file hash/size data
+
+    """
+
     def __init__(self, file_path):
         """
+        Initalizing class for file specified in file_path
 
-        :param file_path:
+        Attributes:
+            file_path: String with absolute path to file
+
+        Raises:
+            IOError: if file does not exist in that location
         """
         self.file_path = file_path
         self.file_name = os.path.basename(file_path)
-        self.sub_path = os.path.dirname(os.path.abspath(file_path))
-        self.sub_path += os.sep if SUBFOLDER is None else os.sep + SUBFOLDER + os.sep
         self.file_size = os.path.getsize(file_path)
 
-        self.file_search_query = None
-        self.hash_search_query = None
         self.ep_info = guessit.guess_episode_info(file_path)
 
-        self.__set_queries()
         self.subtitles = []
+
+    @property
+    def sub_path(self):
+        """
+        Constructs full absolute path where the subtitle should be saved to.
+
+        Returns:
+            Absolute path in which to save subtitle,
+            including subfolder (if any).
+            If no subfolder is set then path is same as video path
+        """
+        path = os.path.dirname(os.path.abspath(self.file_path)) + os.sep
+        if CONFIG['subfolder']:
+            path += "{}{}".format(CONFIG['subfolder'], os.sep)
+
+        return path
+
 
     @property
     def file_hash(self):
         """
+        Calculates hash for video file if the file is larger
+        than 128kb.
 
-
-        :return: :rtype:
+        Returns:
+            String containing file has or None if the file
+            is not found or is too small (<128kb)
         """
         if self.file_size < 65536 * 2:
             return None
@@ -141,19 +224,19 @@ class Video(object):
             longlongformat = 'q'  # long long
             bytesize = struct.calcsize(longlongformat)
 
-            with open(self.file_path, "rb") as f:
+            with open(self.file_path, "rb") as in_file:
 
                 file_hash = self.file_size
 
-                for x in range(65536 / bytesize):
-                    file_buffer = f.read(bytesize)
+                for _ in range(65536 / bytesize):
+                    file_buffer = in_file.read(bytesize)
                     (l_value,) = struct.unpack(longlongformat, file_buffer)
                     file_hash += l_value
                     file_hash &= 0xFFFFFFFFFFFFFFFF  # to remain as 64bit number
 
-                f.seek(max(0, self.file_size - 65536), 0)
-                for x in range(65536 / bytesize):
-                    file_buffer = f.read(bytesize)
+                    in_file.seek(max(0, self.file_size - 65536), 0)
+                for _ in range(65536 / bytesize):
+                    file_buffer = in_file.read(bytesize)
                     (l_value,) = struct.unpack(longlongformat, file_buffer)
                     file_hash += l_value
                     file_hash &= 0xFFFFFFFFFFFFFFFF
@@ -172,52 +255,74 @@ class Video(object):
         We need to check both to be sure whether the subtitle exists or not
         type_1 is naming this script uses
         type_2 is naming without original file extension
+
+        Returns:
+            True if subtitle exists in same path, False otherwise
+            Only subtitle extensions specified in CONFIG are checked.
         """
         type_1 = "{0}{1}".format(self.sub_path, self.file_name)
         type_2 = "{0}{1}".format(self.sub_path,
                                  "".join(self.file_name.split('.')[:-1]))
 
-        for sub_format in SUB_EXT:
-            if os.path.exists(type_1 + sub_format) or \
-                    os.path.exists(type_2 + sub_format):
+        for sub_format in CONFIG['sub_ext']:
+            if os.path.exists(type_1 + sub_format):
+                return True
+
+            if os.path.exists(type_2 + sub_format):
                 return True
 
         return False
 
-    def __set_queries(self):
+    @property
+    def file_search_query(self):
         """
+        Query based on information available from guessit module.
+        Search relies on series name, season,episode number for results
 
-
+        Returns:
+            None if not enough information is available,
+            otherwise query to execute is returned
         """
         try:  # ep_info might raise key error
-            _f_query = "{} S{:02d}E{:02d}".format(self.ep_info['series'],
-                                                  int(self.ep_info['season']),
-                                                  int(self.ep_info[
-                                                      'episodeNumber']))
-            self.file_search_query = [{'sublanguageid': sub_language,
-                                       'query': _f_query,
-                                       'season': self.ep_info['season'],
-                                       'episode': self.ep_info[
-                                           'episodeNumber']}]
-        except KeyError:
-            pass  # file_Search_query is already None - no need to modify it
+            _ = "{} S{:02d}E{:02d}".format(self.ep_info['series'],
+                                           int(self.ep_info['season']),
+                                           int(self.ep_info['episodeNumber'])
+            )
 
+            return [{'sublanguageid': CONFIG['lang'],
+                     'query': _,
+                     'season': self.ep_info['season'],
+                     'episode': self.ep_info['episodeNumber']
+                    }]
+        except KeyError:
+            return None
+
+    @property
+    def hash_search_query(self):
+        """
+         Query based on file hash. Most reliable, in theory,
+         Needs only valid hash and moviesize
+
+        Returns:
+            None if file hash can't be calculated,
+            otherwise query based on hash and filesize is returned
+        """
         if self.file_hash:
-            # if/elif/elif:
-            # **If you define moviehash and moviebytesize, then imdbid and query in same array are ignored.**
-            # If you define imdbid, then moviehash, moviebytesize and query is ignored.
-            # If you define query, then moviehash, moviebytesize and imdbid is ignored.
-            self.hash_search_query = [{"sublanguageid": sub_language,
-                                       'moviehash': self.file_hash,
-                                       'moviebytesize': str(self.file_size)}]
+            return [{"sublanguageid": CONFIG['lang'],
+                     'moviehash': self.file_hash,
+                     'moviebytesize': str(self.file_size)}]
+
+        return None
 
     def parse_response(self, full_json):
         """
+        Parses response for query from server. And constructs
+        multiple Subtitle instances for every subtitle found in
+        the json response.
 
-
-        :rtype : None
-        :param full_json:
-        :return: :rtype:
+        Args:
+            full_json: Complete json response from XMLRPC server
+                       including all subtitles
         """
         if not full_json or not full_json['data']:
             return
@@ -228,18 +333,41 @@ class Video(object):
                                            self.file_name))
 
     def __repr__(self):
+        """
+        repr,returns full video path
+        """
         return "<Video {}>".format(self.file_name)
 
 
 class OpenSubtitlesServer(object):
-    def __init__(self, server="http://api.opensubtitles.org/xml-rpc",
-                 ua='ossubd',
-                 language="eng"):
-        """
+    """OpenSubtitles Server connection/handling class
 
-        :param server:
-        :param ua:
-        :param language:
+    OpenSubtitlesServer class handles logging in,
+    upon initialization. Conducting queries, and handling
+    retries and exceptions
+
+    Attrs:
+        language: str, Language used for searches ISO639-2 format
+        user_agent: str, user agent for for auth with opensubtitles server
+        tokken: str, acquired after successful login and required for queries
+        logged_in: bool, self set to indicate whether login was done or not
+        server: ServerProxy object
+
+
+    """
+
+    def __init__(self, server=CONFIG['server'],
+                 ua=CONFIG['ua'],
+                 language=CONFIG['lang']):
+        """
+        Initialization of server instance. By default values
+        are taken from CONFIG dictionary
+
+        Args:
+            server: str, XMLRPC server URL
+            user_agent: str, user agent for for auth with opensubtitles server
+            language: str, Language used for searches ISO639-2 format
+
         """
         self.language = language
         self.user_agent = ua
@@ -249,8 +377,12 @@ class OpenSubtitlesServer(object):
 
     def login(self, login_attempts=3):
         """
+        Login to server and aquire token. If Protocol error occurs
+        retry certain amount of times
 
-        :param login_attempts:
+        Args:
+            login_attempts: int, number of retries in case of errors
+                            before giving up on logging in
         """
         tries = login_attempts
         session = None
@@ -275,8 +407,8 @@ class OpenSubtitlesServer(object):
 
     def log_out(self):
         """
-
-
+        Run LogOut on server and set token to None and logged_in to False.
+        Without this it's impossible to do query.
         """
         if self.token:
             self.server.LogOut(self.token)
@@ -285,11 +417,17 @@ class OpenSubtitlesServer(object):
 
     def query(self, query, attempts=2, desc="Search query"):
         """
+        Execute query and return server response regardless of what it is.
 
-        :param query:
-        :param attempts:
-        :param desc:
-        :return: :rtype:
+        Args:
+            query: list with dict containing query fields
+            attempts: int, number of attempts before giving up on trying
+                       to make the query.
+            desc: str, description of query displayed in case of fail
+
+        Returns:
+            Server response, json/dict if the query was successful, otherwise
+            returns None
         """
         results = None
         attempts_left = attempts
@@ -304,13 +442,22 @@ class OpenSubtitlesServer(object):
         return None
 
     def __repr__(self):
+        """
+        repr of OpenSubtitlesServer instance with current set token
+        """
         return "<Server {}>".format(self.token)
 
 
 def search_subtitles(file_list):
     """
+    Searches subitles and if any are found initiates prompt and
+    other functions.
 
-    :param file_list:
+    Instantiates server and does login.
+
+    Args:
+        file_list: list, list containing absolute paths of videos
+                   for which to search subtitles for
     """
     server = OpenSubtitlesServer()
     server.login()
@@ -327,7 +474,7 @@ def search_subtitles(file_list):
                                                  count + 1,
                                                  len(file_list)))
 
-        if not OVERWRITE and video.sub_exists:
+        if not CONFIG['overwrite'] and video.sub_exists:
             print("Subtitle already exists")
             continue
 
@@ -339,10 +486,9 @@ def search_subtitles(file_list):
             video.parse_response(server.query(video.hash_search_query,
                                               desc="Hash Based Search"))
 
-        if (not video.hash_search_query and not video.file_search_query) \
-                or video.subtitles == []:
-            print("Couldn't find subtitles in {} for {}".format(sub_language,
-                                                                file_path))
+        if video.subtitles == []:
+            print("Couldn't find subtitles in "
+                  "{} for {}".format(CONFIG['lang'], file_path))
             continue
 
         download_prompt(video)
@@ -352,11 +498,16 @@ def search_subtitles(file_list):
 
 def download_prompt(video):
     """
+    List all found subtitles from video object and
+    ask user to chose which subtitle to download.
+    or to use auto download, skip this one or to quit.
 
-    :param video:
-    :return: :rtype:
+    Args:
+        video: Video class instance with at leas one item
+               in subtitles attribute
+
     """
-    if AUTO_DOWNLOAD:
+    if CONFIG['auto_download']:
         auto_download(video)
         return
 
@@ -410,8 +561,13 @@ def download_prompt(video):
 
 def auto_download(video):
     """
+    Automatically choose best subtitle based on
+    how similar the subtitle and video file names are
+    or based on the type of match.
 
-    :param video:
+    Args:
+        video: Instance of Video class with at leas one item
+               in subtitles attribute.
     """
     sequence = difflib.SequenceMatcher(None, "", "")
     possible_matches = []
@@ -427,7 +583,7 @@ def auto_download(video):
         )
 
         sequence.set_seqs(subtitle_title_name, episode_title_name)
-        if sequence.ratio() > MATCH_CUTOFF:
+        if sequence.ratio() > CONFIG['cutoff']:
             possible_matches.append(subtitle)
 
         if subtitle.synced:
@@ -448,27 +604,43 @@ def auto_download(video):
         print("Can't find best subtitle automatically.")
 
 
-if __name__ == '__main__':
+def main():
+    """
+    Parse command line arguments, set CONFIG object,
+    get valid files and call search_subtitles function
+    """
+    global CONFIG
     parser = argparse.ArgumentParser(
         description='Subtitle downloader for TV Shows')
+
     parser.add_argument("folder", type=str,
-                        help="Folder which will be scanned for allowed video files, "
-                             "and subtitles for those files will be downloaded")
+                        help="Folder which will be scanned for allowed "
+                             "video files, and subtitles for those files "
+                             "will be downloaded")
+
     parser.add_argument("-s", "--subfolder", type=str,
-                        help="Subfolder to save subtitles to, relative to original video file path")
+                        help="Subfolder to save subtitles to, relative to "
+                             "original video file path")
+
     parser.add_argument("-l", "--language", type=str,
-                        help="Subtitle language, must be an ISO 639-1 Code i.e. (eng,fre,deu) Default English(eng)")
+                        help="Subtitle language, must be an ISO 639-1 Code "
+                             "i.e. (eng,fre,deu) Default English(eng)")
+
     parser.add_argument("-a", "--auto", action="store_true",
-                        help="Auto download subtitles for all files without prompt ")
+                        help="Auto download subtitles for all files "
+                             "without prompt ")
+
     parser.add_argument("-o", "--overwrite", action="store_true",
                         help="Overwrite if subtitle with same filename exist.")
+
     parser.add_argument("-f", "--format", type=str,
-                        help="Additional file formats that will be checked, comma separated,"
-                             "specify ony file formats e.g. 'avix,temp,format2' (without quotes)")
+                        help="Additional file formats that will be checked, "
+                             "comma separated, specify only file formats "
+                             "e.g. 'avix,temp,format2' (without quotes)")
     args = parser.parse_args()
 
     if args.format:
-        FILE_EXT += args.format.split(',')
+        CONFIG['file_ext'] += args.format.split(',')
 
     directory = args.folder
     if os.path.isfile(directory):
@@ -477,26 +649,30 @@ if __name__ == '__main__':
         directory += os.sep if not directory.endswith(os.sep) else ""
 
         valid_files = [directory + name for name in os.listdir(directory)
-                       if os.path.splitext(name)[1] in FILE_EXT]
+                       if os.path.splitext(name)[1] in CONFIG['file_ext']]
     else:
         print("{} is not a valid file or directory".format(directory))
         exit()
     if args.subfolder:
-        SUBFOLDER = args.subfolder
-        SUBFOLDER = SUBFOLDER.replace(os.sep, "")
+        CONFIG['subfolder'] = args.subfolder
+        CONFIG['subfolder'] = CONFIG['subfolder'].replace(os.sep, "")
     if args.language:
         if len(args.language) == 3:
-            sub_language = args.language.lower()
+            CONFIG['lang'] = args.language.lower()
         else:
             print(
-                'Argument not ISO 639-1 Code check this for list of valid codes'
-                ' http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes')
+                'Argument not ISO 639-1 Code check this for list of valid '
+                'codes http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes')
             exit()
 
     if args.auto:
-        AUTO_DOWNLOAD = True
+        CONFIG['auto_download'] = True
 
     if args.overwrite:
-        OVERWRITE = True
+        CONFIG['overwrite'] = True
 
     search_subtitles(valid_files)
+
+
+if __name__ == '__main__':
+    main()
