@@ -51,7 +51,7 @@ class TestPysubVideo(unittest.TestCase):
         self.assertEqual([{'query': 'Awesome Test S01E01', 'sublanguageid': 'eng', 'episode': 1, 'season': 1}],
                          self.video.file_search_query)
 
-        self.assertEqual([{'moviebytesize': 150000L, 'sublanguageid': 'eng', 'moviehash': 'b7b7afc0abb9e5b7'}],
+        self.assertEqual([{'moviebytesize': '150000', 'sublanguageid': 'eng', 'moviehash': 'b7b7afc0abb9e5b7'}],
                          self.video.hash_search_query)
 
         self.assertEqual(self.ep_info, self.video.ep_info)

@@ -209,7 +209,7 @@ class Video(object):
             # If you define query, then moviehash, moviebytesize and imdbid is ignored.
             self.hash_search_query = [{"sublanguageid": sub_language,
                                        'moviehash': self.file_hash,
-                                       'moviebytesize': self.file_size}]
+                                       'moviebytesize': str(self.file_size)}]
 
     def parse_response(self, full_json):
         """
