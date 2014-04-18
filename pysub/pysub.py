@@ -234,7 +234,7 @@ class Video(object):
                     file_hash += l_value
                     file_hash &= 0xFFFFFFFFFFFFFFFF  # to remain as 64bit number
 
-                    in_file.seek(max(0, self.file_size - 65536), 0)
+                in_file.seek(max(0, self.file_size - 65536), 0)
                 for _ in range(65536 / bytesize):
                     file_buffer = in_file.read(bytesize)
                     (l_value,) = struct.unpack(longlongformat, file_buffer)
