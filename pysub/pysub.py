@@ -17,6 +17,7 @@ Subtitle downloader using OpenSubtitles.org API
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
 
 import os
 import re
@@ -26,13 +27,13 @@ import struct
 import difflib
 import urllib2
 import argparse
+import xmlrpclib
 from StringIO import StringIO
-from xmlrpclib import ServerProxy, ProtocolError
 
 import guessit
 
 
-CONFIG = {
+config = {
     'file_ext': [
         '.3g2', '.3gp', '.3gp2', '.3gpp', '.60d', '.ajp', '.asf', '.asx',
         '.avchd', '.avi', '.bik', '.bix', '.box', '.cam', '.dat', '.divx',
@@ -202,11 +203,10 @@ class Video(object):
             If no subfolder is set then path is same as video path
         """
         path = os.path.dirname(os.path.abspath(self.file_path)) + os.sep
-        if CONFIG['subfolder']:
-            path += "{}{}".format(CONFIG['subfolder'], os.sep)
+        if config['subfolder']:
+            path += "{}{}".format(config['subfolder'], os.sep)
 
         return path
-
 
     @property
     def file_hash(self):
@@ -232,7 +232,8 @@ class Video(object):
                     file_buffer = in_file.read(bytesize)
                     (l_value,) = struct.unpack(longlongformat, file_buffer)
                     file_hash += l_value
-                    file_hash &= 0xFFFFFFFFFFFFFFFF  # to remain as 64bit number
+                    file_hash &= 0xFFFFFFFFFFFFFFFF
+                    # to remain as 64bit number
 
                 in_file.seek(max(0, self.file_size - 65536), 0)
                 for _ in range(65536 / bytesize):
@@ -264,7 +265,7 @@ class Video(object):
         type_2 = "{0}{1}".format(self.sub_path,
                                  "".join(self.file_name.split('.')[:-1]))
 
-        for sub_format in CONFIG['sub_ext']:
+        for sub_format in config['sub_ext']:
             if os.path.exists(type_1 + sub_format):
                 return True
 
@@ -286,14 +287,12 @@ class Video(object):
         try:  # ep_info might raise key error
             _ = "{} S{:02d}E{:02d}".format(self.ep_info['series'],
                                            int(self.ep_info['season']),
-                                           int(self.ep_info['episodeNumber'])
-            )
+                                           int(self.ep_info['episodeNumber']))
 
-            return [{'sublanguageid': CONFIG['lang'],
+            return [{'sublanguageid': config['lang'],
                      'query': _,
                      'season': self.ep_info['season'],
-                     'episode': self.ep_info['episodeNumber']
-                    }]
+                     'episode': self.ep_info['episodeNumber']}]
         except KeyError:
             return None
 
@@ -308,7 +307,7 @@ class Video(object):
             otherwise query based on hash and filesize is returned
         """
         if self.file_hash:
-            return [{"sublanguageid": CONFIG['lang'],
+            return [{"sublanguageid": config['lang'],
                      'moviehash': self.file_hash,
                      'moviebytesize': str(self.file_size)}]
 
@@ -331,6 +330,47 @@ class Video(object):
             self.subtitles.append(Subtitle(subtitle_json,
                                            self.sub_path,
                                            self.file_name))
+
+    def auto_download(self):
+        """
+        Automatically choose best subtitle based on
+        how similar the subtitle and video file names are
+        or based on the type of match.
+
+        """
+        sequence = difflib.SequenceMatcher(None, "", "")
+        possible_matches = []
+        best_choice = None
+
+        for subtitle in self.subtitles:
+
+            subtitle_title_name = re.sub(r'[^a-zA-Z0-9\s+]', '',
+                                         subtitle.movie_name).lower()
+            episode_title_name = "{} {}".format(
+                self.ep_info.get('series', "0").lower(),
+                self.ep_info.get('title', "0").lower()
+            )
+
+            sequence.set_seqs(subtitle_title_name, episode_title_name)
+            if sequence.ratio() > config['cutoff']:
+                possible_matches.append(subtitle)
+
+            if subtitle.synced:
+                possible_matches.append(subtitle)
+
+        for sub in possible_matches:
+            if not best_choice:
+                best_choice = sub
+            elif sub.download_count > best_choice.download_count:
+                if best_choice.synced and sub.synced is False:
+                    continue
+                else:
+                    best_choice = sub
+
+        if best_choice:
+            best_choice.download()
+        else:
+            print("Can't choose best subtitle automatically.")
 
     def __repr__(self):
         """
@@ -356,9 +396,9 @@ class OpenSubtitlesServer(object):
 
     """
 
-    def __init__(self, server=CONFIG['server'],
-                 ua=CONFIG['ua'],
-                 language=CONFIG['lang']):
+    def __init__(self, server=config['server'],
+                 ua=config['ua'],
+                 language=config['lang']):
         """
         Initialization of server instance. By default values
         are taken from CONFIG dictionary
@@ -373,7 +413,7 @@ class OpenSubtitlesServer(object):
         self.user_agent = ua
         self.token = None
         self.logged_in = False
-        self.server = ServerProxy(server)
+        self.server = xmlrpclib.ServerProxy(server)
 
     def login(self, login_attempts=3):
         """
@@ -391,7 +431,7 @@ class OpenSubtitlesServer(object):
                 session = self.server.LogIn('', '',
                                             self.language,
                                             self.user_agent)
-            except ProtocolError as err:
+            except xmlrpclib.ProtocolError as err:
                 print("Error while logging in to API. {}".format(err.errmsg))
                 time.sleep(2)
                 tries -= 1
@@ -474,7 +514,7 @@ def search_subtitles(file_list):
                                                  count + 1,
                                                  len(file_list)))
 
-        if not CONFIG['overwrite'] and video.sub_exists:
+        if not config['overwrite'] and video.sub_exists:
             print("Subtitle already exists")
             continue
 
@@ -486,9 +526,9 @@ def search_subtitles(file_list):
             video.parse_response(server.query(video.hash_search_query,
                                               desc="Hash Based Search"))
 
-        if video.subtitles == []:
+        if not video.subtitles:
             print("Couldn't find subtitles in "
-                  "{} for {}".format(CONFIG['lang'], file_path))
+                  "{} for {}".format(config['lang'], file_path))
             continue
 
         download_prompt(video)
@@ -496,6 +536,7 @@ def search_subtitles(file_list):
     server.log_out()
 
 
+# noinspection PyTypeChecker
 def download_prompt(video):
     """
     List all found subtitles from video object and
@@ -507,13 +548,12 @@ def download_prompt(video):
                in subtitles attribute
 
     """
-    if CONFIG['auto_download']:
-        auto_download(video)
+    if config['auto_download']:
+        video.auto_download()
         return
 
     user_choice = None
-    possible_choices = ["a", "q", "s", ""]
-    possible_choices.extend(range(len(video.subtitles)))  # py2/3
+    possible_choices = ["a", "q", "s", ""] + range(len(video.subtitles))
 
     print("{:<2}: {:^10} {:<} {}\n{}".format("#", "Downloads", "Subtitle Name",
                                              " * - Sync subtitle", "-" * 50))
@@ -543,7 +583,7 @@ def download_prompt(video):
                                                        len(video.subtitles)))
 
     elif user_choice.lower() == "a":
-        auto_download(video)
+        video.auto_download()
 
     elif user_choice.lower() == "q":
         print('Quitting')
@@ -558,58 +598,12 @@ def download_prompt(video):
     else:
         print("Invalid input")
 
-
-def auto_download(video):
-    """
-    Automatically choose best subtitle based on
-    how similar the subtitle and video file names are
-    or based on the type of match.
-
-    Args:
-        video: Instance of Video class with at leas one item
-               in subtitles attribute.
-    """
-    sequence = difflib.SequenceMatcher(None, "", "")
-    possible_matches = []
-    best_choice = None
-
-    for subtitle in video.subtitles:
-
-        subtitle_title_name = re.sub(r'[^a-zA-Z0-9\s+]', '',
-                                     subtitle.movie_name).lower()
-        episode_title_name = "{} {}".format(
-            video.ep_info.get('series', "0").lower(),
-            video.ep_info.get('title', "0").lower()
-        )
-
-        sequence.set_seqs(subtitle_title_name, episode_title_name)
-        if sequence.ratio() > CONFIG['cutoff']:
-            possible_matches.append(subtitle)
-
-        if subtitle.synced:
-            possible_matches.append(subtitle)
-
-    for sub in possible_matches:
-        if not best_choice:
-            best_choice = sub
-        elif sub.download_count > best_choice.download_count:
-            if best_choice.synced and sub.synced is False:
-                continue
-            else:
-                best_choice = sub
-
-    if best_choice:
-        best_choice.download()
-    else:
-        print("Can't find best subtitle automatically.")
-
-
 def main():
     """
     Parse command line arguments, set CONFIG object,
     get valid files and call search_subtitles function
     """
-    global CONFIG
+    valid_files = []
     parser = argparse.ArgumentParser(
         description='Subtitle downloader for TV Shows')
 
@@ -640,7 +634,7 @@ def main():
     args = parser.parse_args()
 
     if args.format:
-        CONFIG['file_ext'] += args.format.split(',')
+        config['file_ext'] += args.format.split(',')
 
     directory = args.folder
     if os.path.isfile(directory):
@@ -649,16 +643,16 @@ def main():
         directory += os.sep if not directory.endswith(os.sep) else ""
 
         valid_files = [directory + name for name in os.listdir(directory)
-                       if os.path.splitext(name)[1] in CONFIG['file_ext']]
+                       if os.path.splitext(name)[1] in config['file_ext']]
     else:
         print("{} is not a valid file or directory".format(directory))
         exit()
     if args.subfolder:
-        CONFIG['subfolder'] = args.subfolder
-        CONFIG['subfolder'] = CONFIG['subfolder'].replace(os.sep, "")
+        config['subfolder'] = args.subfolder
+        config['subfolder'] = config['subfolder'].replace(os.sep, "")
     if args.language:
         if len(args.language) == 3:
-            CONFIG['lang'] = args.language.lower()
+            config['lang'] = args.language.lower()
         else:
             print(
                 'Argument not ISO 639-1 Code check this for list of valid '
@@ -666,10 +660,10 @@ def main():
             exit()
 
     if args.auto:
-        CONFIG['auto_download'] = True
+        config['auto_download'] = True
 
     if args.overwrite:
-        CONFIG['overwrite'] = True
+        config['overwrite'] = True
 
     search_subtitles(valid_files)
 
