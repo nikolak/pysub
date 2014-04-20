@@ -37,7 +37,7 @@ class TestPysubVideo(unittest.TestCase):
         self.assertEqual(self.filename,
                          self.video.file_name)
 
-        self.assertEqual(os.getcwd() + "/",
+        self.assertEqual(os.getcwd() + os.sep,
                          self.video.sub_path)
 
         self.assertEqual(150000,
@@ -62,7 +62,7 @@ class TestPysubVideo(unittest.TestCase):
     def test_sub_exists(self):
         pass
 
-    def test_set_queries(self):
+    def test_queries(self):
         pass
 
     def tearDown(self):
@@ -71,20 +71,35 @@ class TestPysubVideo(unittest.TestCase):
 class TestServerInstance(object):
 
     def __init__(self, port=8000):
+        self.session=None
+        self.__serve(port)
+
+    def __serve(self, port):
         self.server = SimpleXMLRPCServer(("localhost", port))
         self.server.register_function(self.LogIn, 'LogIn')
         self.server.register_function(self.LogOut, 'LogOut')
         self.server.register_function(self.SearchSubtitles, 'SearchSubtitles')
         self.server.serve_forever()
 
+    def LogIn(self, user, password, lang, user_agent):
+        self.session['user']=user
+        self.session['password']=password
+        self.session['lang']=lang
+        self.session['user_agent']=user_agent
+        self.session['token']='valid_token'
+        return self.session['token']
 
-    def LogIn(self):
-        pass
+    def LogOut(self, token):
+        if self.session['token']==token:
+            self.session=None
+        else:
+            raise ValueError('Invalid token value')
+        return None
 
-    def LogOut(self):
-        pass
+    def SearchSubtitles(self, token, query):
+        if not self.session or self.session['token']!=token:
+            raise ValueError('Invalid token or session')
 
-    def SearchSubtitles(self):
         pass
 
 
