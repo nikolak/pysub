@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Subtitle downloader using OpenSubtitles.org API
+
+Command line command-line user interface
 """
 # Copyright 2014 Nikola Kovacevic <nikolak@outlook.com>
 #
@@ -71,6 +73,7 @@ config = {
 
 
 class Subtitle(object):
+
     """ Contains information about subtitle and handles downloading.
 
     Subtitle class, stores subtitle information returned from
@@ -617,7 +620,7 @@ def main():
                              "original video file path")
 
     parser.add_argument("-l", "--language", type=str,
-                        help="Subtitle language, must be an ISO 639-1 Code "
+                        help="Subtitle language, must be an ISO 639-2 Code "
                              "i.e. (eng,fre,deu) Default English(eng)")
 
     parser.add_argument("-a", "--auto", action="store_true",
@@ -655,8 +658,8 @@ def main():
             config['lang'] = args.language.lower()
         else:
             print(
-                'Argument not ISO 639-1 Code check this for list of valid '
-                'codes http://en.wikipedia.org/wiki/List_of_ISO_639-1_codes')
+                'Argument not ISO 639-2 Code check this for list of valid '
+                'codes http://en.wikipedia.org/wiki/List_of_ISO_639-2_codes')
             exit()
 
     if args.auto:
