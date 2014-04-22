@@ -36,64 +36,72 @@ class PySubGUI(QDialog, main_ui.Ui_Dialog):
         super(PySubGUI, self).__init__(parent)
         self.config=config
         self.setupUi(self)
-        self.item_model = QStandardItemModel(0, 5, parent)
-        self.item_model.setHeaderData(0, Qt.Horizontal, '#')
-        self.item_model.setHeaderData(1, Qt.Horizontal, 'File')
-        self.item_model.setHeaderData(2, Qt.Horizontal, 'Series')
-        self.item_model.setHeaderData(3, Qt.Horizontal, 'Season')
-        self.item_model.setHeaderData(4, Qt.Horizontal, 'Episode')
-        self.results.setModel(self.item_model)
-        self.valid_files=[]
+
+        self.file_model = QStandardItemModel(0, 5, parent)
+        self.file_model.setHeaderData(0, Qt.Horizontal, '#')
+        self.file_model.setHeaderData(1, Qt.Horizontal, 'File')
+        self.file_model.setHeaderData(2, Qt.Horizontal, 'Series')
+        self.file_model.setHeaderData(3, Qt.Horizontal, 'Season')
+        self.file_model.setHeaderData(4, Qt.Horizontal, 'Episode')
+
+        self.sub_model = QStandardItemModel(0, 4, parent)
+        self.sub_model.setHeaderData(0, Qt.Horizontal, '#')
+        self.sub_model.setHeaderData(1, Qt.Horizontal, 'Downloads')
+        self.sub_model.setHeaderData(2, Qt.Horizontal, 'File Name')
+        self.sub_model.setHeaderData(3, Qt.Horizontal, 'Synced')
+
+        self.file_list.setModel(self.file_model)
+        self.video_files=[]
 
     @Slot()
-    def on_add_folder_clicked(self):
+    def on_btn_add_folder_clicked(self):
         directory = QFileDialog.getExistingDirectory(self, "Add Folder",
                                                            QDir.currentPath(),
                                                            )
         if directory:
-            print directory
+            self.parse_files([directory +os.sep+ name for name in os.listdir(directory)
+                          if os.path.splitext(name)[1] in self.config['file_ext']])
 
     @Slot()
-    def on_add_file_clicked(self):
+    def on_btn_add_file_clicked(self):
         files = QFileDialog.getOpenFileNames(self, "Add Files",
                                              QDir.currentPath())
         if files:
             self.parse_files(files[0])
 
     @Slot()
-    def on_start_clicked(self):
+    def on_btn_start_clicked(self):
         pass
 
     @Slot()
-    def on_skip_clicked(self):
+    def on_btn_skip_clicked(self):
         pass
 
     @Slot()
-    def on_download_selected_clicked(self):
+    def on_btn_dl_sel_clicked(self):
         print self.treeView.selectedIndexes()
 
-    def parse_folder(self, folder):
-        pass
 
     def parse_files(self, list_files):
         for item in list_files:
             item="".join(item)
             if os.path.splitext(item)[1] in config['file_ext']:
-                self.valid_files.append(Video(item, self.config))
+                self.video_files.append(Video(item, self.config))
         self.update_file_list()
 
     def update_file_list(self):
-        for counter, video in enumerate(self.valid_files):
-            self.item_model.setItem(counter, 0, QStandardItem(str(counter)))
-            self.item_model.setItem(counter, 1, QStandardItem(video.file_name))
-            self.item_model.setItem(counter, 2, QStandardItem(video.ep_info.get('series','Unknown')))
-            self.item_model.setItem(counter, 3, QStandardItem(str(video.ep_info.get('season','Unknown'))))
-            self.item_model.setItem(counter, 4, QStandardItem(str(video.ep_info.get('episodeNumber', 'Unknown'))))
-        self.results.setModel(self.item_model)
+        for counter, video in enumerate(self.video_files):
+            self.file_model.setItem(counter, 0, QStandardItem(str(counter)))
+            self.file_model.setItem(counter, 1, QStandardItem(video.file_name))
+            self.file_model.setItem(counter, 2, QStandardItem(video.ep_info.get('series','Unknown')))
+            self.file_model.setItem(counter, 3, QStandardItem(str(video.ep_info.get('season','Unknown'))))
+            self.file_model.setItem(counter, 4, QStandardItem(str(video.ep_info.get('episodeNumber', 'Unknown'))))
+        self.file_list.setModel(self.file_model)
         for i in range(5):
-            self.results.resizeColumnToContents(i)
+            self.file_list.resizeColumnToContents(i)
 
-
+        if len(self.video_files)>0:
+            self.btn_start.setEnabled(True)
 def main():
     app = QApplication(sys.argv)
     form = PySubGUI()
