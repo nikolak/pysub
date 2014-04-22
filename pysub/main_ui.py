@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ui/main.ui'
 #
-# Created: Sun Apr 20 14:29:08 2014
+# Created: Sun Apr 20 16:10:51 2014
 #      by: pyside-uic 0.2.15 running on PySide 1.2.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -20,19 +20,16 @@ class Ui_Dialog(object):
         self.overwrite = QtGui.QCheckBox(Dialog)
         self.overwrite.setObjectName("overwrite")
         self.gridLayout.addWidget(self.overwrite, 2, 1, 1, 1)
-        self.results = QtGui.QColumnView(Dialog)
-        self.results.setObjectName("results")
-        self.gridLayout.addWidget(self.results, 6, 0, 1, 3)
         self.skip = QtGui.QPushButton(Dialog)
         self.skip.setObjectName("skip")
-        self.gridLayout.addWidget(self.skip, 7, 0, 1, 1)
+        self.gridLayout.addWidget(self.skip, 6, 0, 1, 1)
         self.do_auto_download = QtGui.QPushButton(Dialog)
         self.do_auto_download.setObjectName("do_auto_download")
-        self.gridLayout.addWidget(self.do_auto_download, 7, 1, 1, 1)
+        self.gridLayout.addWidget(self.do_auto_download, 6, 1, 1, 1)
         self.overall_progress = QtGui.QProgressBar(Dialog)
         self.overall_progress.setProperty("value", 24)
         self.overall_progress.setObjectName("overall_progress")
-        self.gridLayout.addWidget(self.overall_progress, 8, 0, 1, 3)
+        self.gridLayout.addWidget(self.overall_progress, 7, 0, 1, 3)
         self.line = QtGui.QFrame(Dialog)
         self.line.setFrameShape(QtGui.QFrame.HLine)
         self.line.setFrameShadow(QtGui.QFrame.Sunken)
@@ -43,7 +40,7 @@ class Ui_Dialog(object):
         self.gridLayout.addWidget(self.add_file, 1, 1, 1, 1)
         self.download_selected = QtGui.QPushButton(Dialog)
         self.download_selected.setObjectName("download_selected")
-        self.gridLayout.addWidget(self.download_selected, 7, 2, 1, 1)
+        self.gridLayout.addWidget(self.download_selected, 6, 2, 1, 1)
         self.add_folder = QtGui.QPushButton(Dialog)
         self.add_folder.setObjectName("add_folder")
         self.gridLayout.addWidget(self.add_folder, 1, 0, 1, 1)
@@ -68,6 +65,17 @@ class Ui_Dialog(object):
         self.language.setObjectName("language")
         self.formLayout.setWidget(0, QtGui.QFormLayout.FieldRole, self.language)
         self.gridLayout.addLayout(self.formLayout, 2, 2, 1, 1)
+        self.results = QtGui.QTreeView(Dialog)
+        self.results.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
+        self.results.setProperty("showDropIndicator", False)
+        self.results.setAlternatingRowColors(True)
+        self.results.setItemsExpandable(False)
+        self.results.setSortingEnabled(True)
+        self.results.setAnimated(True)
+        self.results.setAllColumnsShowFocus(True)
+        self.results.setExpandsOnDoubleClick(False)
+        self.results.setObjectName("results")
+        self.gridLayout.addWidget(self.results, 5, 0, 1, 3)
         self.verticalLayout_2.addLayout(self.gridLayout)
 
         self.retranslateUi(Dialog)
@@ -78,8 +86,7 @@ class Ui_Dialog(object):
         Dialog.setTabOrder(self.auto_download, self.overwrite)
         Dialog.setTabOrder(self.overwrite, self.language)
         Dialog.setTabOrder(self.language, self.start)
-        Dialog.setTabOrder(self.start, self.results)
-        Dialog.setTabOrder(self.results, self.skip)
+        Dialog.setTabOrder(self.start, self.skip)
         Dialog.setTabOrder(self.skip, self.do_auto_download)
         Dialog.setTabOrder(self.do_auto_download, self.download_selected)
 
