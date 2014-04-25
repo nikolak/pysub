@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ui/main.ui'
 #
-# Created: Wed Apr 23 00:11:00 2014
+# Created: Wed Apr 23 19:42:48 2014
 #      by: pyside-uic 0.2.15 running on PySide 1.2.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
-        Dialog.resize(687, 520)
+        Dialog.resize(750, 500)
         self.verticalLayout_2 = QtGui.QVBoxLayout(Dialog)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.tabWidget = QtGui.QTabWidget(Dialog)
@@ -175,7 +175,7 @@ class Ui_Dialog(object):
         Dialog.setWindowTitle(QtGui.QApplication.translate("Dialog", "PySub GUI", None, QtGui.QApplication.UnicodeUTF8))
         self.btn_auto_dl.setText(QtGui.QApplication.translate("Dialog", "Auto Download", None, QtGui.QApplication.UnicodeUTF8))
         self.btn_start.setText(QtGui.QApplication.translate("Dialog", "Start searching", None, QtGui.QApplication.UnicodeUTF8))
-        self.status_label.setText(QtGui.QApplication.translate("Dialog", "List of added valid files:", None, QtGui.QApplication.UnicodeUTF8))
+        self.status_label.setText(QtGui.QApplication.translate("Dialog", "<html><head/><body><p>List of video files:</p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
         self.btn_dl_sel.setText(QtGui.QApplication.translate("Dialog", "Download Selected", None, QtGui.QApplication.UnicodeUTF8))
         self.btn_skip.setText(QtGui.QApplication.translate("Dialog", "Skip", None, QtGui.QApplication.UnicodeUTF8))
         self.btn_add_folder.setText(QtGui.QApplication.translate("Dialog", "Add Folder", None, QtGui.QApplication.UnicodeUTF8))
