@@ -78,7 +78,7 @@ class Video(object):
         than 128kb.
 
         Returns:
-            String containing file has or None if the file
+            String containing file hash or None if the file
             is not found or is too small (<128kb)
         """
         if self.file_size < 65536 * 2:
