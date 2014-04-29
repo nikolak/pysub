@@ -24,7 +24,7 @@ from __future__ import print_function
 import os
 import argparse
 
-from objects import Video, OpenSubtitlesServer
+from pysub_objects import Video, OpenSubtitlesServer
 
 from default_config import config
 
@@ -173,6 +173,8 @@ def main():
                         help="Additional file formats that will be checked, "
                              "comma separated, specify only file formats "
                              "e.g. 'avix,temp,format2' (without quotes)")
+    parser.add_argument("-r", "--recursive", action="store_true",
+                        help="Search files recursively")
     args = parser.parse_args()
 
     if args.format:
@@ -183,9 +185,15 @@ def main():
         valid_files = [directory]
     elif os.path.isdir(directory):
         directory += os.sep if not directory.endswith(os.sep) else ""
-
-        valid_files = [directory + name for name in os.listdir(directory)
-                       if os.path.splitext(name)[1] in config['file_ext']]
+        valid_files = []
+        if args.recursive:
+            for root, _, files in os.walk(directory):
+                for file in files:
+                    if os.path.splitext(file)[1] in config['file_ext']:
+                        valid_files.append("{}{}{}".format(root, os.sep, file))
+        else:
+            valid_files = [directory + name for name in os.listdir(directory)
+                           if os.path.splitext(name)[1] in config['file_ext']]
     else:
         print("{} is not a valid file or directory".format(directory))
         exit()
