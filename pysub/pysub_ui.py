@@ -25,7 +25,7 @@ import os
 from PySide.QtCore import *
 from PySide.QtGui import *
 
-from objects import Video, OpenSubtitlesServer
+from pysub_objects import Video, OpenSubtitlesServer
 from default_config import config
 import main_ui
 
@@ -361,7 +361,6 @@ class PySubGUI(QDialog, main_ui.Ui_Dialog):
             self.btn_dl_sel.setEnabled(True)
             self.btn_start.setText("Stop Search")
             self.download_mode = True
-
 
 def main():
     app = QApplication(sys.argv)
