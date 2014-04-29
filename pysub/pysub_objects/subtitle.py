@@ -1,20 +1,12 @@
 # encoding: utf-8
 
-import re
 import os
 import gzip
-import time
-import struct
-import difflib
 import urllib2
-import xmlrpclib
 from StringIO import StringIO
-import guessit
-import json
 
 
 class Subtitle(object):
-
     """ Contains information about subtitle and handles downloading.
 
     Subtitle class, stores subtitle information returned from
