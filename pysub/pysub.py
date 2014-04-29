@@ -26,7 +26,7 @@ import argparse
 
 from pysub_objects import Video, OpenSubtitlesServer
 
-from default_config import config
+from settings import config
 
 def search_subtitles(file_list, config):
     """
@@ -91,8 +91,8 @@ def download_prompt(video):
 
     """
     if config['auto_download']:
-        video.auto_download()
-        return
+        if not video.auto_download():
+            print("Can't choose best subtitle automatically.")
 
     user_choice = None
     possible_choices = ["a", "q", "s", ""] + range(len(video.subtitles))
@@ -125,7 +125,8 @@ def download_prompt(video):
                                                        len(video.subtitles)))
 
     elif user_choice.lower() == "a":
-        video.auto_download()
+        if not video.auto_download():
+            print("Can't choose best subtitle automatically.")
 
     elif user_choice.lower() == "q":
         print('Quitting')

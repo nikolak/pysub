@@ -26,11 +26,11 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 
 from pysub_objects import Video, OpenSubtitlesServer
-from default_config import config
-import main_ui
+from settings import config
+import ui_design
 
 
-class PySubGUI(QDialog, main_ui.Ui_Dialog):
+class PySubGUI(QDialog, ui_design.Ui_Dialog):
     def __init__(self, parent=None):
         """
         Initialize GUI and set up variables.
