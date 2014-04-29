@@ -200,6 +200,9 @@ class Video(object):
         how similar the subtitle and video file names are
         or based on the type of match.
 
+        Returns:
+            True if suitable subtitle is found else False
+
         """
         sequence = difflib.SequenceMatcher(None, "", "")
         possible_matches = []
@@ -232,8 +235,9 @@ class Video(object):
 
         if best_choice:
             best_choice.download()
+            return True
         else:
-            print("Can't choose best subtitle automatically.")
+            return False
 
     def __repr__(self):
         """
