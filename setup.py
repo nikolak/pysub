@@ -27,6 +27,7 @@ setup(
     url='https://github.com/nikola-k/pysub',
     packages=[
         'pysub',
+        'pysub.pysub_objects',
     ],
     package_dir={'pysub': 'pysub'},
     include_package_data=True,
