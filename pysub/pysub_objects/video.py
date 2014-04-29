@@ -210,8 +210,8 @@ class Video(object):
             subtitle_title_name = re.sub(r'[^a-zA-Z0-9\s+]', '',
                                          subtitle.movie_name).lower()
             episode_title_name = "{} {}".format(
-                self.ep_info.get('series', "0").lower(),
-                self.ep_info.get('title', "0").lower()
+                self.ep_info.get('series', "0").lower().encode('utf-8'),
+                self.ep_info.get('title', "0").lower().encode('utf-8')
             )
 
             sequence.set_seqs(subtitle_title_name, episode_title_name)

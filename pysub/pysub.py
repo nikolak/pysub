@@ -104,7 +104,7 @@ def download_prompt(video):
         print("{:<2}: {:^10} {:<}".format(num,
                                           str(subtitle.download_count) +
                                           ['', '*'][subtitle.synced],
-                                          subtitle.sub_filename))
+                                          subtitle.sub_filename.encode('utf-8')))
 
     while user_choice not in possible_choices:
         user_input = raw_input("return - download first, 's' - skip, "
