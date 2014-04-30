@@ -26,7 +26,7 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 
 from pysub_objects import Video, OpenSubtitlesServer
-from settings import config
+from settings import config, languages
 import ui_design
 
 
@@ -65,11 +65,24 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
         self.video_files = []
         self.current_video = None
         self.download_mode = False
+        self.server=None
 
-        self.server = OpenSubtitlesServer("http://localhost:8000",
-                                          config['ua'],
-                                          config['lang'])
+    def login_to_server(self):
+        language = languages.get(self.cbo_language.currentText(),
+                                 config['lang'])
+        print language
 
+        if self.server:
+            if self.server.language!=language:
+                print 'logging out'
+                self.server.log_out()
+            else:
+                return
+
+        self.server = OpenSubtitlesServer(config['server'],
+                                            config['ua'],
+                                            language)
+        print self.server.language
         self.server.login()
 
     def set_header_data(self):
@@ -94,7 +107,11 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
         Adds list of available languages for which subtitles can
         be searched for to the language picker in Settings tab.
         """
-        self.cbo_language.addItems(["English", "Serbian"])
+        lang_list=sorted(languages.keys())
+        # Move English and Serbian to the top of th elist
+        lang_list.insert(0, lang_list.pop(lang_list.index('English')))
+        lang_list.insert(1, lang_list.pop(lang_list.index('Serbian')))
+        self.cbo_language.addItems(lang_list)
 
     @Slot()
     def on_btn_add_folder_clicked(self):
@@ -146,6 +163,7 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
             self.update_file_list()
             self.overall_progress.setValue(0)
         else:
+            self.login_to_server()
             self.overall_progress.setMaximum(len(self.video_files))
             self.change_mode()
             self.search_next()
