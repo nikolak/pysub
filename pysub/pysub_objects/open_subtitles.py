@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # encoding: utf-8
 
 import time
@@ -11,7 +12,7 @@ class OpenSubtitlesServer(object):
     upon initialization. Conducting queries, and handling
     retries and exceptions
 
-    Attrs:#!/usr/bin/env python
+    Attributes:
         language: str, Language used for searches ISO639-2 format
         user_agent: str, user agent for for auth with opensubtitles server
         tokken: str, acquired after successful login and required for queries
