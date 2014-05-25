@@ -210,6 +210,25 @@ class Video(object):
 
         for subtitle in self.subtitles:
 
+            sub_info = guessit.guess_episode_info(subtitle.sub_filename)
+
+            sub_series = sub_info.get('series', "None Found").lower().encode(
+                'utf-8')
+            sub_season = sub_info.get('season', None)
+            sub_episode = sub_info.get('episodeNumber', None)
+
+            vid_series = self.ep_info.get('series', "None").lower().encode(
+                'utf-8')
+            vid_season = self.ep_info.get('season', None)
+            vid_episode = self.ep_info.get('episodeNumber', None)
+
+            if vid_series == sub_series:
+                if sub_season and vid_season and sub_episode and vid_episode:
+                    if [sub_season, sub_episode] == [vid_season, vid_episode]:
+                        possible_matches.append(subtitle)
+                    else:
+                        continue
+
             subtitle_title_name = re.sub(r'[^a-zA-Z0-9\s+]', '',
                                          subtitle.movie_name).lower()
             episode_title_name = "{} {}".format(
@@ -220,6 +239,7 @@ class Video(object):
             sequence.set_seqs(subtitle_title_name, episode_title_name)
             if sequence.ratio() > self.config['cutoff']:
                 possible_matches.append(subtitle)
+                continue
 
             if subtitle.synced:
                 possible_matches.append(subtitle)
