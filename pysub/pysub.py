@@ -79,7 +79,7 @@ def search_subtitles(file_list, config):
 
 
 # noinspection PyTypeChecker
-def download_prompt(video):
+def download_prompt(video, force=False):
     """
     List all found subtitles from video object and
     ask user to chose which subtitle to download.
@@ -90,9 +90,11 @@ def download_prompt(video):
                in subtitles attribute
 
     """
-    if config['auto_download']:
+    if config['auto_download'] and not force:
         if not video.auto_download():
             print("Can't choose best subtitle automatically.")
+            if config['not_found_prompt']:
+                download_prompt(video, force=True)
         return
 
     user_choice = None
@@ -128,6 +130,8 @@ def download_prompt(video):
     elif user_choice.lower() == "a":
         if not video.auto_download():
             print("Can't choose best subtitle automatically.")
+            if config['not_found_prompt']:
+                download_prompt(video, force=True)
 
     elif user_choice.lower() == "q":
         print('Quitting')
@@ -177,6 +181,10 @@ def main():
                              "e.g. 'avix,temp,format2' (without quotes)")
     parser.add_argument("-r", "--recursive", action="store_true",
                         help="Search files recursively")
+
+    parser.add_argument("-p", "--nfprompt", action="store_true",
+                        help="Prompt which subtitle to download if auto"
+                             "downloader can't choose one")
     args = parser.parse_args()
 
     if args.format:
@@ -216,6 +224,9 @@ def main():
 
     if args.overwrite:
         config['overwrite'] = True
+
+    if args.nfprompt:
+        config['not_found_prompt'] = True
 
     search_subtitles(valid_files, config)
 

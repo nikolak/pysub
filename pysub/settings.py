@@ -19,6 +19,7 @@ config = {
 
     'overwrite': False,  # If subtitle exists in save location
     'auto_download': False,
+    'not_found_prompt': False,
     'subfolder': None,  # Download to same directory as video if None
     'cutoff': 0.75,
 
