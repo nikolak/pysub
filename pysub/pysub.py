@@ -93,6 +93,7 @@ def download_prompt(video):
     if config['auto_download']:
         if not video.auto_download():
             print("Can't choose best subtitle automatically.")
+        return
 
     user_choice = None
     possible_choices = ["a", "q", "s", ""] + range(len(video.subtitles))
