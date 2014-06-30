@@ -124,17 +124,18 @@ class Video(object):
             True if subtitle exists in same path, False otherwise
             Only subtitle extensions specified in CONFIG are checked.
         """
-        type_1 = "{0}{1}".format(self.sub_path, self.file_name)
-        type_2 = "{0}{1}".format(self.sub_path,
-                                 "".join(self.file_name.split('.')[:-1]))
+        possible_filenames = [self.file_name,  # video_filename.ext.sub_ext
+                              "".join(self.file_name.split('.')[:-1])  # video_filename.sub_ext
+        ]
+        possible_folders = [self.sub_path,  # same folder as video
+                            "{}{}{}".format(self.sub_path, "Subs", os.sep)  # Subs folder
+        ]
 
         for sub_format in self.config['sub_ext']:
-            if os.path.exists(type_1 + sub_format):
-                return True
-
-            if os.path.exists(type_2 + sub_format):
-                return True
-
+            for name in possible_filenames:
+                for folder in possible_folders:
+                    if os.path.exists("{}{}{}".format(folder, name, sub_format)):
+                        return True
         return False
 
     @property
