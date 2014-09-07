@@ -26,7 +26,7 @@ import argparse
 
 from pysub_objects import Video, OpenSubtitlesServer
 
-from settings import config
+from settings import default_config as config
 
 def search_subtitles(file_list, config):
     """
@@ -70,7 +70,7 @@ def search_subtitles(file_list, config):
 
         if not video.subtitles:
             print("Couldn't find subtitles in "
-                  "{} for {}".format(config['lang'], file_path))
+                  "{} for {}".format(config['lang_name'], file_path))
             continue
 
         download_prompt(video)
@@ -152,8 +152,7 @@ def main():
     get valid files and call search_subtitles function
     """
     valid_files = []
-    parser = argparse.ArgumentParser(
-        description='Subtitle downloader for TV Shows')
+    parser = argparse.ArgumentParser(description='Subtitle downloader for TV Shows')
 
     parser.add_argument("folder", type=str,
                         help="Folder which will be scanned for allowed "
@@ -207,12 +206,19 @@ def main():
     else:
         print("{} is not a valid file or directory".format(directory))
         exit()
+
     if args.subfolder:
         config['subfolder'] = args.subfolder
         config['subfolder'] = config['subfolder'].replace(os.sep, "")
+
     if args.language:
         if len(args.language) == 3:
             config['lang'] = args.language.lower()
+        elif len(args.language)>3:
+            config['lang'] = config['languages'].get(args.language.title())
+            if not config['lang']:
+                raise ValueError("Wrong language value")
+            config['lang_name'] = args.language.title()
         else:
             print(
                 'Argument not ISO 639-2 Code check this for list of valid '
