@@ -11,7 +11,7 @@ Settings module
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,9 +21,12 @@ Settings module
 
 import os
 import json
+
 from appdirs import AppDirs
+
+
 dirs = AppDirs("pysub", "pysub")
-config_file=dirs.user_data_dir+os.sep+"config.json"
+config_file = dirs.user_data_dir + os.sep + "config.json"
 
 default_config = {
     "file_ext": [
@@ -51,7 +54,7 @@ default_config = {
     "cutoff": 0.75,
 
     "lang": "eng",
-    "lang_name":"English",
+    "lang_name": "English",
     "ua": "ossubd",
     "server": "http://api.opensubtitles.org/xml-rpc",
 
@@ -100,6 +103,7 @@ default_config = {
     }
 }
 
+
 def get_config():
     if os.path.exists(config_file):
         try:
@@ -110,6 +114,7 @@ def get_config():
             return default_config
 
     return default_config
+
 
 def save_config(user_config):
     with open(config_file, "w") as out_config:

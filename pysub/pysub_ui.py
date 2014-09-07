@@ -21,6 +21,7 @@ GUI user interface
 
 import sys
 import os
+import json
 
 from PySide.QtCore import *
 from PySide.QtGui import *
@@ -28,7 +29,6 @@ from PySide.QtGui import *
 from pysub_objects import Video, OpenSubtitlesServer
 import ui_design
 import settings
-import json
 
 
 class PySubGUI(QDialog, ui_design.Ui_Dialog):
@@ -100,8 +100,8 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
             new_config['languages'] = json.loads(self.txt_lang_json.toPlainText())
             new_config['lang'] = self.config['languages'].get(self.cbo_language.currentText())
             if not new_config['lang']:
-               raise ValueError("Wrong lang value")
-            new_config['lang_name'] =  self.cbo_language.currentText()
+                raise ValueError("Wrong lang value")
+            new_config['lang_name'] = self.cbo_language.currentText()
             new_config['ua'] = self.lne_ua.text()
             new_config['server'] = self.lne_server.text()
         except:
@@ -244,15 +244,15 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
 
     def search(self, index=None):
         if index:
-            self.c_video_index=index
+            self.c_video_index = index
         else:
-            self.c_video_index+=1
+            self.c_video_index += 1
 
-        if self.c_video_index>=len(self.video_files):
+        if self.c_video_index >= len(self.video_files):
             self.change_mode()
             return
         else:
-            video=self.video_files[self.c_video_index]
+            video = self.video_files[self.c_video_index]
         if video.sub_exists and not self.config['overwrite']:
             self.search()
         else:
@@ -260,10 +260,10 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
                 try:
                     if video.file_search_query:
                         video.parse_response(self.server.query(video.file_search_query,
-                                              desc="File Based Search"))
+                                                               desc="File Based Search"))
                     if video.hash_search_query:
                         video.parse_response(self.server.query(video.hash_search_query,
-                                              desc="Hash Based Search"))
+                                                               desc="Hash Based Search"))
                 except:
                     pass
             if self.config['auto_download'] and video.subtitles:
@@ -273,43 +273,6 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
             else:
                 self.update_sub_table(video)
                 return
-
-
-    def search_old(self, manual_index=None):
-        if manual_index:
-            self.c_video_index = manual_index
-
-        if not self.video_files:
-            return
-
-        if len(self.video_files) == self.c_video_index + 1:
-            self.change_mode()
-            self.c_video_index = -1
-            self.update_file_table()
-            return
-
-        self.c_video_index += 1
-        video = self.video_files[self.c_video_index]
-        if not self.config['overwrite'] and video.sub_exists:
-            # print("Subtitle already exists")
-            # fixme: WILL cause exception if 1k items before have subtitle downloaded
-            # self.search()
-            return False
-
-        if not video.subtitles:
-            try:
-                if video.file_search_query:
-                    video.parse_response(self.server.query(video.file_search_query,
-                                         desc="File Based Search"))
-
-                if video.hash_search_query:
-                    video.parse_response(self.server.query(video.hash_search_query,
-                                         desc="Hash Based Search"))
-            except:
-                return False
-
-        self.update_sub_table(video)
-
 
     def update_file_table(self):
 
@@ -365,7 +328,7 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
         self.sub_model.clear()
 
         self.status_label.setText("Subtitles for: '{}'".format(
-                                                    video.file_name))
+            video.file_name))
 
         if not video.subtitles:
             self.sub_model.setItem(0, 0, QStandardItem("N/A"))

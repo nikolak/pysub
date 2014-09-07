@@ -11,7 +11,7 @@ Command line command-line user interface
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,8 +25,8 @@ import os
 import argparse
 
 from pysub_objects import Video, OpenSubtitlesServer
-
 from settings import default_config as config
+
 
 def search_subtitles(file_list, config):
     """
@@ -146,6 +146,7 @@ def download_prompt(video, force=False):
     else:
         print("Invalid input")
 
+
 def main():
     """
     Parse command line arguments, set CONFIG object,
@@ -214,7 +215,7 @@ def main():
     if args.language:
         if len(args.language) == 3:
             config['lang'] = args.language.lower()
-        elif len(args.language)>3:
+        elif len(args.language) > 3:
             config['lang'] = config['languages'].get(args.language.title())
             if not config['lang']:
                 raise ValueError("Wrong language value")
