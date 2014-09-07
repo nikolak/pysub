@@ -1,5 +1,7 @@
 #Python Subtitle Downloader
 
+[![Build Status](https://travis-ci.org/Nikola-K/pysub.svg)](https://travis-ci.org/Nikola-K/pysub)
+
 Fast and free subtitle downloader written in python. Has both command line and GUI interfaces (see screenshots below)
 
 Use `pysub --help` for command line help and `pysub-ui` to run the GUI.
