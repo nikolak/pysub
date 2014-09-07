@@ -4,7 +4,6 @@
 import os
 import sys
 
-
 try:
     from setuptools import setup
 except ImportError:
@@ -14,12 +13,12 @@ if sys.argv[-1] == 'publish':
     os.system('python setup.py sdist upload')
     sys.exit()
 
-readme = open('README.rst').read()
+readme = open('README.md').read()
 history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 
 setup(
     name='pysub',
-    version='0.1.0',
+    version='0.2.0',
     description='Subtitle downloader written in python, using opensubtitles.com API',
     long_description=readme + '\n\n' + history,
     author='Nikola Kovacevic',
@@ -31,7 +30,8 @@ setup(
     ],
     package_dir={'pysub': 'pysub'},
     include_package_data=True,
-    install_requires=["guessit==0.7.1",
+    install_requires=["guessit==0.9.1",
+                      "appdirs==1.4.0"
     ],
     entry_points={
         'console_scripts': [
