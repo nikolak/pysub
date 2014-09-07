@@ -32,7 +32,7 @@ GNU/Linux GUI:
 
 GNU/Linux CLI:
 
-![GUI Linux](screenshots/terminal_2.0.png?raw=true)
+![GUI Linux](screenshots/terminal_0.2.0.png?raw=true)
 
 ##Command Line Interace Help
 
