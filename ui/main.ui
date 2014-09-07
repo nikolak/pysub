@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>750</width>
-    <height>500</height>
+    <width>853</width>
+    <height>543</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>PySub GUI</string>
@@ -32,7 +38,7 @@
             <bool>false</bool>
            </property>
            <property name="text">
-            <string>Auto Download</string>
+            <string/>
            </property>
           </widget>
          </item>
@@ -67,6 +73,9 @@
            <property name="alternatingRowColors">
             <bool>true</bool>
            </property>
+           <property name="selectionMode">
+            <enum>QAbstractItemView::ExtendedSelection</enum>
+           </property>
            <property name="itemsExpandable">
             <bool>false</bool>
            </property>
@@ -86,6 +95,11 @@
          </item>
          <item row="3" column="0" colspan="3">
           <widget class="QLabel" name="status_label">
+           <property name="font">
+            <font>
+             <italic>true</italic>
+            </font>
+           </property>
            <property name="text">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;List of video files:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
@@ -101,20 +115,13 @@
            </property>
           </widget>
          </item>
-         <item row="6" column="0" colspan="3">
-          <widget class="QProgressBar" name="overall_progress">
-           <property name="value">
-            <number>0</number>
-           </property>
-          </widget>
-         </item>
          <item row="5" column="0">
           <widget class="QPushButton" name="btn_skip">
            <property name="enabled">
             <bool>false</bool>
            </property>
            <property name="text">
-            <string>Skip</string>
+            <string/>
            </property>
           </widget>
          </item>
@@ -142,122 +149,332 @@
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>
-        <layout class="QFormLayout" name="formLayout_2">
-         <property name="fieldGrowthPolicy">
-          <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+        <widget class="QToolBox" name="bx_settings">
+         <property name="currentIndex">
+          <number>0</number>
          </property>
-         <item row="1" column="0">
-          <widget class="QCheckBox" name="chk_auto_dl">
-           <property name="text">
-            <string>Auto Download Subtitles</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QLabel" name="label_auto_download">
-           <property name="font">
-            <font>
-             <family>Droid Sans</family>
-             <italic>false</italic>
-             <underline>false</underline>
-             <kerning>true</kerning>
-            </font>
-           </property>
-           <property name="text">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#787878;&quot;&gt;Skips asking you which subtitle to download for every file and will automatically picks best one it can find. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="textFormat">
-            <enum>Qt::AutoText</enum>
-           </property>
-           <property name="scaledContents">
-            <bool>false</bool>
-           </property>
-           <property name="wordWrap">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="QCheckBox" name="chk_overwrite">
-           <property name="text">
-            <string>Overwrite Existing Subs</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="1">
-          <widget class="QLabel" name="label_overwrite">
-           <property name="text">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#787878;&quot;&gt;Overwrite subtitle if one already exists without prompting user&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="wordWrap">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <widget class="QLabel" name="label_lang_indicator">
-           <property name="text">
-            <string>Language:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="0">
-          <widget class="QComboBox" name="cbo_language"/>
-         </item>
-         <item row="4" column="1">
-          <widget class="QLabel" name="label_language">
-           <property name="text">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#787878;&quot;&gt;Language for which to search subtitles for&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="wordWrap">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item row="6" column="0">
-          <widget class="QLabel" name="label_formats_indicator">
-           <property name="text">
-            <string>Additional formats:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="7" column="0">
-          <widget class="QLineEdit" name="edt_formats"/>
-         </item>
-         <item row="7" column="1">
-          <widget class="QLabel" name="label_formats">
-           <property name="text">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#787878;&quot;&gt;Additional file formats to consider valid video files when scanning files/folders. Comma separated. e.g. &amp;quot;.avi,.mpg,.etc&amp;quot;&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="wordWrap">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item row="8" column="0">
-          <widget class="QLabel" name="label_folder_indicator">
-           <property name="text">
-            <string>Save folder:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="9" column="0">
-          <widget class="QLineEdit" name="edt_subfolder"/>
-         </item>
-         <item row="9" column="1">
-          <widget class="QLabel" name="label_subfolder">
-           <property name="text">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#787878;&quot;&gt;Folder relative to video file where to save subtitle to, if empty the subtitle will be saved in same directory as the original video file. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="wordWrap">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-        </layout>
+         <widget class="QWidget" name="pge_set_norm">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>813</width>
+            <height>369</height>
+           </rect>
+          </property>
+          <attribute name="label">
+           <string>Settings</string>
+          </attribute>
+          <layout class="QHBoxLayout" name="horizontalLayout_2">
+           <item>
+            <layout class="QFormLayout" name="layout_chkboxes">
+             <property name="sizeConstraint">
+              <enum>QLayout::SetDefaultConstraint</enum>
+             </property>
+             <property name="fieldGrowthPolicy">
+              <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+             </property>
+             <item row="1" column="0">
+              <widget class="QCheckBox" name="chk_auto_dl">
+               <property name="text">
+                <string>Auto Download Subtitles</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLabel" name="lbl_auto_dl">
+               <property name="font">
+                <font>
+                 <family>Droid Sans</family>
+                 <italic>false</italic>
+                 <underline>false</underline>
+                 <kerning>true</kerning>
+                </font>
+               </property>
+               <property name="text">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#747474;&quot;&gt;Skips asking you which subtitle to download for every file and will automatically picks best one it can find. &lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="textFormat">
+                <enum>Qt::AutoText</enum>
+               </property>
+               <property name="scaledContents">
+                <bool>false</bool>
+               </property>
+               <property name="wordWrap">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QCheckBox" name="chk_overwrite">
+               <property name="text">
+                <string>Overwrite Existing Subs</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QLabel" name="lbl_overwrite">
+               <property name="text">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#747474;&quot;&gt;Overwrite subtitle if one already exists without prompting user&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="wordWrap">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0" colspan="2">
+              <layout class="QHBoxLayout" name="dl_folder_layout">
+               <item>
+                <widget class="QLabel" name="lbl_save_folder">
+                 <property name="text">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#676767;&quot;&gt;Relative to video subtitle folder to save to:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="save_folder_spacer">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QLineEdit" name="lne_save_folder"/>
+               </item>
+              </layout>
+             </item>
+             <item row="6" column="0" colspan="2">
+              <layout class="QHBoxLayout" name="language_layout">
+               <item>
+                <widget class="QLabel" name="lbl_language">
+                 <property name="text">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#737373;&quot;&gt;Search subtitles for this language:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="wordWrap">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="spacer_language">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Preferred</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QComboBox" name="cbo_language">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="minimumSize">
+                  <size>
+                   <width>150</width>
+                   <height>0</height>
+                  </size>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item row="4" column="1">
+              <widget class="QLabel" name="lbl_prompt">
+               <property name="text">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#747474;&quot;&gt;If auto download is used and it doesn't find any suitable subtitles you'll have to manually select one (or skip file)&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="wordWrap">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QCheckBox" name="chk_prompt">
+               <property name="text">
+                <string>Prompt if auto-dl fails</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+          <zorder></zorder>
+         </widget>
+         <widget class="QWidget" name="pge_set_adv">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>760</width>
+            <height>477</height>
+           </rect>
+          </property>
+          <attribute name="label">
+           <string>Advanced Settings</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_3">
+           <item>
+            <widget class="QGroupBox" name="advanced_group_box">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="title">
+              <string/>
+             </property>
+             <property name="flat">
+              <bool>true</bool>
+             </property>
+             <property name="checkable">
+              <bool>false</bool>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+             <layout class="QHBoxLayout" name="horizontalLayout_7">
+              <property name="margin">
+               <number>2</number>
+              </property>
+              <item>
+               <layout class="QVBoxLayout" name="advanced_layout">
+                <item>
+                 <widget class="QLabel" name="lbl_file_ext">
+                  <property name="text">
+                   <string>File extensions</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPlainTextEdit" name="txt_file_ext">
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>0</height>
+                   </size>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QLabel" name="lbl_sub_ext">
+                  <property name="text">
+                   <string>Sub ext</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPlainTextEdit" name="txt_sub_ext"/>
+                </item>
+                <item>
+                 <widget class="QLabel" name="lbl_lang_json">
+                  <property name="text">
+                   <string>Languages JSON:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPlainTextEdit" name="txt_lang_json"/>
+                </item>
+                <item>
+                 <layout class="QHBoxLayout" name="cutoff_layout">
+                  <item>
+                   <widget class="QLabel" name="lbl_cutoff">
+                    <property name="text">
+                     <string>Match cutoff:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QSlider" name="sl_cutoff">
+                    <property name="maximum">
+                     <number>100</number>
+                    </property>
+                    <property name="singleStep">
+                     <number>1</number>
+                    </property>
+                    <property name="pageStep">
+                     <number>1</number>
+                    </property>
+                    <property name="value">
+                     <number>75</number>
+                    </property>
+                    <property name="orientation">
+                     <enum>Qt::Horizontal</enum>
+                    </property>
+                    <property name="invertedAppearance">
+                     <bool>false</bool>
+                    </property>
+                    <property name="invertedControls">
+                     <bool>false</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="sl_label">
+                    <property name="text">
+                     <string>00</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <layout class="QHBoxLayout" name="ua_server_layout">
+                  <item>
+                   <widget class="QLabel" name="lbl_ua">
+                    <property name="text">
+                     <string>User Agent:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLineEdit" name="lne_ua"/>
+                  </item>
+                  <item>
+                   <widget class="QLabel" name="lbl_server">
+                    <property name="text">
+                     <string>XMLRPC Server URL:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QLineEdit" name="lne_server"/>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="chk_enable_advanced_sett">
+             <property name="text">
+              <string>Enable Advanced Settings</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
        </item>
        <item>
-        <widget class="Line" name="line_2">
+        <widget class="Line" name="line_buttons">
          <property name="frameShadow">
           <enum>QFrame::Raised</enum>
          </property>
@@ -267,38 +484,22 @@
         </widget>
        </item>
        <item>
-        <widget class="QLabel" name="label_info">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Settings are applied for this session only - just change the option you want, if you want to apply them to every session by default click the button below to save this configuration.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="wordWrap">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <spacer name="verticalSpacer">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <layout class="QHBoxLayout" name="layout_settings_buttons">
          <item>
-          <spacer name="horizontalSpacer">
+          <widget class="QPushButton" name="btn_reset_conf">
+           <property name="text">
+            <string>Reset to default</string>
+           </property>
+           <property name="checkable">
+            <bool>false</bool>
+           </property>
+           <property name="flat">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="spacer_buttons">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
@@ -313,20 +514,7 @@
          <item>
           <widget class="QPushButton" name="btn_save_conf">
            <property name="text">
-            <string>Save settings as default</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="btn_reset_conf">
-           <property name="text">
-            <string>Reset settings</string>
-           </property>
-           <property name="checkable">
-            <bool>false</bool>
-           </property>
-           <property name="flat">
-            <bool>false</bool>
+            <string>Save</string>
            </property>
           </widget>
          </item>
@@ -347,5 +535,38 @@
   <tabstop>btn_dl_sel</tabstop>
  </tabstops>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>chk_enable_advanced_sett</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>advanced_group_box</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>32</x>
+     <y>423</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>71</x>
+     <y>172</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>sl_cutoff</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>sl_label</receiver>
+   <slot>setNum(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>393</x>
+     <y>363</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>715</x>
+     <y>363</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>
