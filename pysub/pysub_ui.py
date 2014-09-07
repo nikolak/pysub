@@ -11,7 +11,7 @@ GUI user interface
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,240 +26,304 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 
 from pysub_objects import Video, OpenSubtitlesServer
-from settings import config, languages
 import ui_design
+import settings
+import json
 
 
 class PySubGUI(QDialog, ui_design.Ui_Dialog):
     def __init__(self, parent=None):
-        """
-        Initialize GUI and set up variables.
-
-        Attributes:
-            file_model: QStandardItemModel that contains header data
-                        for list of filenames in QTreeView
-            sub_model: QStandardItemModel that contains header data
-                        for list of subtitles in QTreeView
-            config: dictionary with (default) configuration values for
-                    server url, user_agent, language
-            video_files: list of video files added for which subtitles
-                         will be searched for
-            current_video: Instance of Video class/object for which
-                           the subtitle is being chosen for right now
-            download_mode: boolean value that indicates whether or not
-                           subtitles are being searched for files
-                           or is the GUI still in adding files mode
-            server: Instance of OpenSubtitlesServer class
-        """
         super(PySubGUI, self).__init__(parent)
         self.setupUi(self)
 
         self.file_model = QStandardItemModel(0, 6, parent)
         self.sub_model = QStandardItemModel(0, 4, parent)
-        self.set_header_data()
-        self.populate_languages()
-
         self.file_list.setModel(self.file_model)
 
-        self.config = config
+        self.config = None
+        self.server = None
+        self.__load_config()
+
         self.video_files = []
-        self.current_video = None
+        self.c_video_index = -1
         self.download_mode = False
-        self.server=None
+        self.update_file_table()
 
-    def login_to_server(self):
-        language = languages.get(self.cbo_language.currentText(),
-                                 config['lang'])
-        print language
+    def __load_config(self, force_default=False):
+        if force_default:
+            self.config = settings.default_config
+        else:
+            self.config = settings.get_config()
 
-        if self.server:
-            if self.server.language!=language:
-                print 'logging out'
-                self.server.log_out()
-            else:
-                return
+        self.__update_settings_ui()
+        self.__login_to_server()
 
-        self.server = OpenSubtitlesServer(config['server'],
-                                            config['ua'],
-                                            language)
-        print self.server.language
-        self.server.login()
+    def __update_settings_ui(self):
+        auto_dl = self.config['auto_download']
+        self.chk_auto_dl.setCheckState(Qt.Checked if auto_dl else Qt.Unchecked)
 
-    def set_header_data(self):
-        """
-        Sets header data for file_model and sub_model
-        created in __init__ function
-        """
-        self.file_model.setHeaderData(0, Qt.Horizontal, '#')
-        self.file_model.setHeaderData(1, Qt.Horizontal, 'File')
-        self.file_model.setHeaderData(2, Qt.Horizontal, 'Series')
-        self.file_model.setHeaderData(3, Qt.Horizontal, 'Season')
-        self.file_model.setHeaderData(4, Qt.Horizontal, 'Episode')
-        self.file_model.setHeaderData(5, Qt.Horizontal, 'Sub Exists')
+        ovw = self.config['overwrite']
+        self.chk_overwrite.setCheckState(Qt.Checked if ovw else Qt.Unchecked)
 
-        self.sub_model.setHeaderData(0, Qt.Horizontal, '#')
-        self.sub_model.setHeaderData(1, Qt.Horizontal, 'Downloads')
-        self.sub_model.setHeaderData(2, Qt.Horizontal, 'File Name')
-        self.sub_model.setHeaderData(3, Qt.Horizontal, 'Synced')
+        prompt = self.config['not_found_prompt']
+        self.chk_prompt.setCheckState(Qt.Checked if prompt else Qt.Unchecked)
 
-    def populate_languages(self):
-        """
-        Adds list of available languages for which subtitles can
-        be searched for to the language picker in Settings tab.
-        """
-        lang_list=sorted(languages.keys())
-        # Move English and Serbian to the top of th elist
-        lang_list.insert(0, lang_list.pop(lang_list.index('English')))
-        lang_list.insert(1, lang_list.pop(lang_list.index('Serbian')))
+        self.lne_save_folder.setText(self.config['subfolder'])
+
+        lang_list = sorted(self.config['languages'].keys())
+        # Move English and Serbian to the top of the list
+        lang_list.insert(0, lang_list.pop(lang_list.index(self.config['lang_name'])))
         self.cbo_language.addItems(lang_list)
 
-    @Slot()
-    def on_btn_add_folder_clicked(self):
-        """
-        Add folder button connection.
+        # Advanced Settings
+        self.txt_file_ext.setPlainText(json.dumps(self.config['file_ext']))
+        self.txt_sub_ext.setPlainText(json.dumps(self.config['sub_ext']))
+        self.txt_lang_json.setPlainText(json.dumps(self.config['languages']))
 
-        Pass all files in the selected folder to the parse_files
-        function which creates class instances and adds them to the
-        video_files list.
-        """
-        directory = QFileDialog.getExistingDirectory(self,
-                                                     "Add Folder",
-                                                     QDir.currentPath())
+        self.sl_label.setText("{}".format(int(self.config['cutoff'] * 100)))
+        self.sl_cutoff.setValue(int(self.config['cutoff'] * 100))
 
-        if directory:
-            self.parse_files([directory + os.sep + name
-                              for name in os.listdir(directory)])
-
-    @Slot()
-    def on_btn_add_file_clicked(self):
-        """
-        Add file(s) button:
-
-        Pass the file selected to the parse_files function.
-        """
-        files = QFileDialog.getOpenFileNames(self, "Add Files",
-                                             QDir.currentPath())
-        if files:
-            self.parse_files(files[0])
-
-    @Slot()
-    def on_btn_start_clicked(self):
-        """
-        Start Searching button:
-
-        Set the maximum value of progress bar, which is equal to the
-        number of valid files there are in the list
-
-        If we're in download mode this button behaves as "stop search"
-        button, changes mode, sets progresbar to 0, removes sub listing
-        and re-freshes file listing.
-
-        Otherwise it sets progressbar to appropriate max value,
-        changes mode(disables add buttons/enable sub control buttons)
-        and start search for subtitles on the next file
-        """
-        if self.download_mode:
-            self.change_mode()
-            self.update_file_list()
-            self.overall_progress.setValue(0)
-        else:
-            self.login_to_server()
-            self.overall_progress.setMaximum(len(self.video_files))
-            self.change_mode()
-            self.search_next()
-
-    @Slot()
-    def on_btn_skip_clicked(self):
-        """
-        Skip button:
-
-        Skips current file and doesn't download any subtitles for it
-        """
-        self.search_next()
-
-    @Slot()
-    def on_btn_auto_dl_clicked(self):
-        """
-        Auto choose button:
-
-        Auto choose from current subtitle list for this file only.
-
-        Since all the logic is contained in the Video class instance
-        just rely on that to do the job
-        """
-        # TODO: Video doesn't return anything, but it prints that the choosing
-        # failed if nothing is found, maybe add True/False return value
-        # and (optionally) implement some additional features if the auto
-        # download fails, like e.g. "pick manually if auto download fails"
-        self.current_video.auto_download()
-        self.search_next()
-
-    @Slot()
-    def on_btn_dl_sel_clicked(self):
-        """
-        Download button:
-
-        Downloads current selected subtitle.
-
-        Basically the subtitle position in the list is equal to its
-        value in first column so we just use that, convert it to int
-        and use it as list index and then we execute the download function
-        that all Subtitle class instances have.
-        """
-        if not any(self.file_list.selectedIndexes()):
-            return
-        sub_index = int(self.file_list.selectedIndexes()[0].data())
-        self.current_video.subtitles[sub_index].download()
+        self.lne_ua.setText(self.config['ua'])
+        self.lne_server.setText(self.config['server'])
 
     @Slot()
     def on_btn_save_conf_clicked(self):
-        """
-        Save current config button:
-        """
-        pass
+        try:
+            new_config = {}
+            new_config['file_ext'] = json.loads(self.txt_file_ext.toPlainText())
+            new_config['sub_ext'] = json.loads(self.txt_sub_ext.toPlainText())
+            new_config['overwrite'] = self.chk_overwrite.checkState() == Qt.Checked
+            new_config['auto_download'] = self.chk_auto_dl.checkState() == Qt.Checked
+            new_config['not_found_prompt'] = self.chk_prompt.checkState() == Qt.Checked
+            new_config['subfolder'] = None if self.lne_save_folder.text() == "" else self.lne_save_folder.text()
+            new_config['cutoff'] = float(self.sl_label.text()) / 100.00
+            new_config['languages'] = json.loads(self.txt_lang_json.toPlainText())
+            new_config['lang'] = self.config['languages'].get(self.cbo_language.currentText())
+            if not new_config['lang']:
+               raise ValueError("Wrong lang value")
+            new_config['lang_name'] =  self.cbo_language.currentText()
+            new_config['ua'] = self.lne_ua.text()
+            new_config['server'] = self.lne_server.text()
+        except:
+            QMessageBox.critical(self, "Save error",
+                                 "Saving new configuration has failed."
+                                 "Fix the configuration options manually "
+                                 "or reset to default settings and then save")
+            return
+
+        settings.save_config(new_config)
+
+        self.__load_config()
+
+    def __login_to_server(self):
+        if self.server:
+            self.server.log_out()
+
+        self.server = OpenSubtitlesServer(self.config['server'],
+                                          self.config['ua'],
+                                          self.config['lang'])
+        self.server.login()
+
+    @Slot()
+    def on_btn_add_folder_clicked(self):
+        directory = QFileDialog.getExistingDirectory(self,
+                                                     "Add Folder",
+                                                     QDir.homePath())
+
+        if directory:
+            self.add_files(
+                [directory + os.sep + name for name in os.listdir(directory)])
+
+    @Slot()
+    def on_btn_add_file_clicked(self):
+        files = QFileDialog.getOpenFileNames(self, "Add Files",
+                                             QDir.homePath())
+        if files:
+            self.add_files(files[0])
+
+    @Slot()
+    def on_btn_start_clicked(self):
+        self.change_mode()
+
+    @Slot()
+    def on_btn_skip_clicked(self):
+        if self.btn_skip.text() == "Remove selected":
+            rows = self.file_list.selectionModel().selectedRows()
+            rm_indexes = [row.row() for row in rows]
+            if rm_indexes:
+                self.video_files = [v for v in self.video_files
+                                    if self.video_files.index(
+                        v) not in rm_indexes]
+                self.update_file_table()
+        else:
+            self.search()
+
+    @Slot()
+    def on_btn_auto_dl_clicked(self):
+        if self.btn_auto_dl.text() == "Remove all":
+            self.video_files = []
+            self.update_file_table()
+        else:
+            downloaded = self.video_files[self.c_video_index].auto_download()
+            if self.config['not_found_prompt'] and not downloaded:
+                self.search(index=self.c_video_index)
+            else:
+                self.search()
+
+    @Slot()
+    def on_btn_dl_sel_clicked(self):
+        if self.file_list.selectionModel().selectedRows():
+            try:
+                sub_index = self.file_list.selectionModel().selectedRows()[0].row()
+            except:  # no sub selected
+                QMessageBox.information(self, "Not selected",
+                                        "Please select the subtitle  you want to download"
+                                        "before clicking 'Download' button")
+                return
+        else:
+            return
+
+        self.video_files[self.c_video_index].subtitles[sub_index].download()
+        self.search()
 
     @Slot()
     def on_btn_reset_conf_clicked(self):
-        """
-        Reset config to default values.
-        """
-        pass
+        self.__load_config(force_default=True)
 
-    def parse_files(self, list_files):
-        """
-        Makes Video instances for each file that has valid extension
-        and adds it to video_files list.
 
-        Arguments:
-            list_files: List of absolute file paths
-        """
-        for item in list_files:
-            if os.path.splitext(item)[1] in config['file_ext']:
-                self.video_files.append(Video(item, self.config))
+    def change_mode(self):
+        if self.download_mode:
+            self.download_mode = False
 
-        self.update_file_list()
+            self.btn_add_folder.setEnabled(True)
+            self.btn_add_file.setEnabled(True)
 
-    def update_file_list(self):
-        """
-        Creates the rows and assigns right data for the video files
+            self.btn_start.setText("Start searching")
 
-        For each Video class instance in video_files list a new row
-        is created, with it's position in a list as "#" identifier
-        and other useful rows.
+            self.btn_skip.setEnabled(False)
+            self.btn_auto_dl.setEnabled(False)
+            self.btn_dl_sel.setEnabled(False)
 
-        If the video_files list has more than 1 valid item visible
-        enable the Start Search button, otherwise disable it.
-        """
+            self.c_video_index = -1
+
+            self.update_file_table()
+        else:
+            self.download_mode = True
+
+            self.btn_add_folder.setEnabled(False)
+            self.btn_add_file.setEnabled(False)
+            self.btn_start.setText("Stop")
+
+            self.btn_skip.setEnabled(True)
+            self.btn_auto_dl.setEnabled(True)
+            self.btn_dl_sel.setEnabled(True)
+
+            self.btn_skip.setText("Skip")
+            self.btn_auto_dl.setText("Auto download")
+            self.search()
+
+
+    def add_files(self, file_list):
+        for video_file in file_list:
+            if os.path.splitext(video_file)[1] in self.config['file_ext']:
+                new_video = Video(video_file, self.config)
+                self.video_files.append(new_video)
+            else:
+                pass
+
+        if self.file_list:
+            self.update_file_table()
+            self.btn_start.setEnabled(True)
+
+    def auto_search_all(self):
+        for index, video in enumerate(self.video_files):
+            if self.config['not_found_prompt'] and not video.auto_download():
+                self.search(index)
+
+        self.update_file_table()
+
+    def search(self, index=None):
+        if index:
+            self.c_video_index=index
+        else:
+            self.c_video_index+=1
+
+        if self.c_video_index>=len(self.video_files):
+            self.change_mode()
+            return
+        else:
+            video=self.video_files[self.c_video_index]
+        if video.sub_exists and not self.config['overwrite']:
+            self.search()
+        else:
+            if not video.subtitles:
+                try:
+                    if video.file_search_query:
+                        video.parse_response(self.server.query(video.file_search_query,
+                                              desc="File Based Search"))
+                    if video.hash_search_query:
+                        video.parse_response(self.server.query(video.hash_search_query,
+                                              desc="Hash Based Search"))
+                except:
+                    pass
+            if self.config['auto_download'] and video.subtitles:
+                if self.config['not_found_prompt'] and not video.auto_download():
+                    self.update_sub_table(video)
+                    return
+            else:
+                self.update_sub_table(video)
+                return
+
+
+    def search_old(self, manual_index=None):
+        if manual_index:
+            self.c_video_index = manual_index
+
+        if not self.video_files:
+            return
+
+        if len(self.video_files) == self.c_video_index + 1:
+            self.change_mode()
+            self.c_video_index = -1
+            self.update_file_table()
+            return
+
+        self.c_video_index += 1
+        video = self.video_files[self.c_video_index]
+        if not self.config['overwrite'] and video.sub_exists:
+            # print("Subtitle already exists")
+            # fixme: WILL cause exception if 1k items before have subtitle downloaded
+            # self.search()
+            return False
+
+        if not video.subtitles:
+            try:
+                if video.file_search_query:
+                    video.parse_response(self.server.query(video.file_search_query,
+                                         desc="File Based Search"))
+
+                if video.hash_search_query:
+                    video.parse_response(self.server.query(video.hash_search_query,
+                                         desc="Hash Based Search"))
+            except:
+                return False
+
+        self.update_sub_table(video)
+
+
+    def update_file_table(self):
+
+        self.status_label.setText("List of video files:")
+
         self.file_model.clear()
+
         for row_num, video in enumerate(self.video_files):
             vid_index = QStandardItem(str(row_num))
             vid_filename = QStandardItem(video.file_name)
             vid_series = QStandardItem(video.ep_info.get('series', 'Unknown'))
-            vid_season = QStandardItem(str(video.ep_info.get('season',
-                                                             'Unknown')))
-            vid_episode = QStandardItem(str(video.ep_info.get('episodeNumber',
-                                                              'Unknown')))
-            vid_sub_exist = QStandardItem(["No", "Yes"][video.sub_exists])
+            vid_season = QStandardItem(str(video.ep_info.get('season', 'Unknown')))
+            vid_episode = QStandardItem(str(video.ep_info.get('episodeNumber', 'Unknown')))
+            vid_sub_exist = QStandardItem("Yes" if video.sub_exists else "No")
 
             self.file_model.setItem(row_num, 0, vid_index)
             self.file_model.setItem(row_num, 1, vid_filename)
@@ -268,117 +332,75 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
             self.file_model.setItem(row_num, 4, vid_episode)
             self.file_model.setItem(row_num, 5, vid_sub_exist)
 
+        self.file_model.setHeaderData(0, Qt.Horizontal, '#')
+        self.file_model.setHeaderData(1, Qt.Horizontal, 'File')
+        self.file_model.setHeaderData(2, Qt.Horizontal, 'Series')
+        self.file_model.setHeaderData(3, Qt.Horizontal, 'Season')
+        self.file_model.setHeaderData(4, Qt.Horizontal, 'Episode')
+        self.file_model.setHeaderData(5, Qt.Horizontal, 'Sub Exists')
+
         self.file_list.setModel(self.file_model)
 
         for i in range(5):
             self.file_list.resizeColumnToContents(i)
 
-        if len(self.video_files) > 0:
+        if self.video_files:
             self.btn_start.setEnabled(True)
+
+            self.btn_skip.setText("Remove selected")
+            self.btn_skip.setEnabled(True)
+
+            self.btn_auto_dl.setText("Remove all")
+            self.btn_auto_dl.setEnabled(True)
         else:
             self.btn_start.setEnabled(False)
 
-    def make_subtitle_list(self, video):
-        """
-        Creates the rows and assigns right data for the subtitle links
+            self.btn_skip.setText("")
+            self.btn_skip.setEnabled(False)
 
-        For each Subtitle class instance in the Video instacne subtitles
-        attribute row with the appropriate data (where found) is created,
-        with subtitle position in a list as "#" identifier
-        and other useful rows.
+            self.btn_auto_dl.setText("")
+            self.btn_auto_dl.setEnabled(False)
 
-        Args:
-            video: Instance of Video class with at least one subtitle
-                   in its subtitles variable
-        """
-        for row_num, sub in enumerate(video.subtitles):
-            sub_index = QStandardItem(str(row_num))
-            sub_downloads = QStandardItem(str(sub.download_count))
-            sub_name = QStandardItem(sub.sub_filename)
-            sub_synced = QStandardItem(["No", "Yes"][sub.synced])
+    def update_sub_table(self, video):
+        self.sub_model.clear()
 
-            self.sub_model.setItem(row_num, 0, sub_index)
-            self.sub_model.setItem(row_num, 1, sub_downloads)
-            self.sub_model.setItem(row_num, 2, sub_name)
-            self.sub_model.setItem(row_num, 3, sub_synced)
+        self.status_label.setText("Subtitles for: '{}'".format(
+                                                    video.file_name))
+
+        if not video.subtitles:
+            self.sub_model.setItem(0, 0, QStandardItem("N/A"))
+            self.sub_model.setItem(0, 1, QStandardItem("N/A"))
+            self.sub_model.setItem(0, 2, QStandardItem("Subtitle not found"))
+            self.sub_model.setItem(0, 3, QStandardItem("N/A"))
+            self.btn_dl_sel.setEnabled(False)
+            self.btn_auto_dl.setEnabled(False)
+
+        else:
+            for row, sub in enumerate(video.subtitles):
+                sub_index = QStandardItem(str(row))
+                sub_downloads = QStandardItem(str(sub.download_count))
+                sub_name = QStandardItem(sub.sub_filename)
+                sub_synced = QStandardItem("Yes" if sub.synced else "No")
+
+                self.sub_model.setItem(row, 0, sub_index)
+                self.sub_model.setItem(row, 1, sub_downloads)
+                self.sub_model.setItem(row, 2, sub_name)
+                self.sub_model.setItem(row, 3, sub_synced)
+
+            self.btn_dl_sel.setEnabled(True)
+            self.btn_auto_dl.setEnabled(True)
+            self.btn_skip.setEnabled(True)
+
+        self.sub_model.setHeaderData(0, Qt.Horizontal, '#')
+        self.sub_model.setHeaderData(1, Qt.Horizontal, 'Downloads')
+        self.sub_model.setHeaderData(2, Qt.Horizontal, 'File Name')
+        self.sub_model.setHeaderData(3, Qt.Horizontal, 'Synced')
 
         self.file_list.setModel(self.sub_model)
 
-        for i in range(5):
+        for i in range(3):
             self.file_list.resizeColumnToContents(i)
 
-    def search_next(self):
-        """
-        Sets the current_video variable to the first item in the
-        video_files list, if any exist, and removes it from the list.
-        for all intents and purposes, as far as GUI knows, this file has been
-        processed - even if user presses the Stop button while on it
-
-        If no files exist, but this is still called, for example
-        by clicking skip button on the last subtitle
-        change_mode and update file list is executed.
-
-        If any files are left in the video_files list those will be displayed
-        in the QTreeView via update_file_list() function
-        """
-        if any(self.video_files):
-            self.current_video = self.video_files[0]
-            self.video_files.pop(0)
-        else:
-            self.change_mode()
-            self.update_file_list()
-            return
-
-        progress = self.overall_progress.maximum() - len(self.video_files)
-        self.overall_progress.setValue(progress)
-
-        overwrite = self.chk_overwrite.checkState() == Qt.CheckState.Checked
-        if self.current_video.sub_exists and not overwrite:
-            return
-
-        if self.current_video.file_search_query:
-            self.current_video.parse_response(self.server.query(
-                self.current_video.file_search_query,
-                desc="File Based Search"))
-
-        if self.current_video.hash_search_query:
-            self.current_video.parse_response(self.server.query(
-                self.current_video.hash_search_query,
-                desc="Hash Based Search"))
-
-        # TODO: Remove print. add notification?
-        if not self.current_video.subtitles:
-            print("Couldn't find subtitles in "
-                  "{} for {}".format(config['lang'],
-                                     self.current_video.file_path))
-        else:
-            self.make_subtitle_list(self.current_video)
-
-    def change_mode(self):
-        """
-        When changing to download mode all subtitle related buttons
-        skip, auto download, download selected - are enabled
-        add folder and add file(s) buttons are disabled.
-        "Start search" text is changed to "stop search
-
-        When changing from download mode the opposite is done.
-        """
-        if self.download_mode:
-            self.btn_add_file.setEnabled(True)
-            self.btn_add_folder.setEnabled(True)
-            self.btn_skip.setEnabled(False)
-            self.btn_auto_dl.setEnabled(False)
-            self.btn_dl_sel.setEnabled(False)
-            self.btn_start.setText("Start Search")
-            self.download_mode = False
-        else:
-            self.btn_add_file.setEnabled(False)
-            self.btn_add_folder.setEnabled(False)
-            self.btn_skip.setEnabled(True)
-            self.btn_auto_dl.setEnabled(True)
-            self.btn_dl_sel.setEnabled(True)
-            self.btn_start.setText("Stop Search")
-            self.download_mode = True
 
 def main():
     app = QApplication(sys.argv)
