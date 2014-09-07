@@ -1,4 +1,31 @@
-{
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Subtitle downloader using OpenSubtitles.org API
+
+Settings module
+"""
+# Copyright 2014 Nikola Kovacevic <nikolak@outlook.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+import json
+from appdirs import AppDirs
+dirs = AppDirs("pysub", "pysub")
+config_file=dirs.user_data_dir+os.sep+"config.json"
+
+default_config = {
     "file_ext": [
         ".3g2", ".3gp", ".3gp2", ".3gpp", ".60d", ".ajp", ".asf", ".asx",
         ".avchd", ".avi", ".bik", ".bix", ".box", ".cam", ".dat", ".divx",
@@ -17,13 +44,14 @@
         ".stl", ".ssf", ".srt", ".ssa", ".ass", ".sub", ".usf"
     ],
 
-    "overwrite": false,
-    "auto_download": false,
-    "not_found_prompt": false,
-    "subfolder": null,
+    "overwrite": False,
+    "auto_download": False,
+    "not_found_prompt": False,
+    "subfolder": None,
     "cutoff": 0.75,
 
     "lang": "eng",
+    "lang_name":"English",
     "ua": "ossubd",
     "server": "http://api.opensubtitles.org/xml-rpc",
 
@@ -68,6 +96,25 @@
         "Ukrainian": "ukr",
         "Uzbek": "uzb",
         "Vietnamese": "vie",
-        "Welsh": "wel",
+        "Welsh": "wel"
     }
 }
+
+def get_config():
+    if os.path.exists(config_file):
+        try:
+            with open(config_file, "r") as in_config:
+                return json.load(in_config)
+        except:
+            print "Loading config failed"
+            return default_config
+
+    return default_config
+
+def save_config(user_config):
+    with open(config_file, "w") as out_config:
+        json.dump(user_config, out_config)
+
+
+if __name__ == '__main__':
+    print config_file
