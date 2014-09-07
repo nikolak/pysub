@@ -36,6 +36,7 @@ setup(
     entry_points={
         'console_scripts': [
             'pysub = pysub.pysub:main',
+            'pysub-ui = pysub.pysub_ui:main'
         ],
     },
     license="Apache Software License",
