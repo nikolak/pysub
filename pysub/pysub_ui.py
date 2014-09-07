@@ -55,8 +55,11 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
         else:
             self.config = settings.get_config()
 
+        if self.server:
+            self.server = None
+
         self.__update_settings_ui()
-        self.__login_to_server()
+
 
     def __update_settings_ui(self):
         auto_dl = self.config['auto_download']
@@ -258,6 +261,9 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
         else:
             if not video.subtitles:
                 try:
+                    if not self.server:
+                        self.__login_to_server()
+
                     if video.file_search_query:
                         video.parse_response(self.server.query(video.file_search_query,
                                                                desc="File Based Search"))
