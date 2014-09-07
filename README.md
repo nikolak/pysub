@@ -24,6 +24,24 @@ Use `pysub --help` for command line help and `pysub-ui` to run the GUI.
 
 * Free - Licensed under Apache License, Version 2. All features are free and open source.
 
+##Installing
+
+For the moment there are no binary distributions available - there will be in future versions.
+ 
+Recommended way to install pysub at the moment is by using `pip`:
+
+`pip install git+https://github.com/Nikola-K/pysub.git`
+
+Or by downloading the repository and running `python setup.py install`.
+
+For GUI you will also need to install pyside.
+
+More information:
+
+http://qt-project.org/wiki/PySide
+
+http://pip.readthedocs.org/en/latest/
+
 ##Screenshots
 
 GNU/Linux GUI:
