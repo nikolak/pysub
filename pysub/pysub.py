@@ -39,13 +39,7 @@ def search_subtitles(file_list, config):
         file_list: list, list containing absolute paths of videos
                    for which to search subtitles for
     """
-    server = OpenSubtitlesServer(config['server'],
-                                 config['ua'],
-                                 config['lang'])
-    server.login()
-
-    if not server.logged_in:
-        exit()
+    server = None
 
     for count, file_path in enumerate(file_list):
 
@@ -59,6 +53,15 @@ def search_subtitles(file_list, config):
         if not config['overwrite'] and video.sub_exists:
             print("Subtitle already exists")
             continue
+
+        if not server:
+            server = OpenSubtitlesServer(config['server'],
+                                         config['ua'],
+                                         config['lang'])
+            server.login()
+
+            if not server.logged_in:
+                exit()
 
         if video.file_search_query:
             video.parse_response(server.query(video.file_search_query,
