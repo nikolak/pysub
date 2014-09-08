@@ -2,6 +2,11 @@
 
 History
 -------
+
+0.3.0 (Development)
+++++++++++++++++++
+* Connect to servers only when necessary
+
 0.2.0 (2014-08-07)
 ++++++++++++++++++
 

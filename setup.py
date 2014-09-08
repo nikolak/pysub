@@ -18,7 +18,7 @@ history = open('HISTORY.rst').read().replace('.. :changelog:', '')
 
 setup(
     name='pysub',
-    version='0.2.0',
+    version='0.3',
     description='Subtitle downloader written in python, using opensubtitles.com API',
     long_description=readme + '\n\n' + history,
     author='Nikola Kovacevic',
