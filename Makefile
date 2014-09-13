@@ -9,6 +9,7 @@ help:
 	@echo "coverage - check code coverage quickly with the default Python"
 	@echo "release - package and upload a release"
 	@echo "sdist - package"
+	@echo "build-ui - compile .ui files to .py"
 
 clean: clean-build clean-pyc
 	rm -fr htmlcov/
@@ -47,3 +48,7 @@ dist: clean
 	python setup.py sdist
 	python setup.py bdist_wheel
 	ls -l dist
+
+build-ui:
+	pyside-uic pysub/ui/main_window.ui -o pysub/ui/main_window.py
+	pyside-rcc pysub/ui/resources.qrc -o pysub/ui/resources_rc.py
