@@ -117,9 +117,19 @@ def get_config():
 
 
 def save_config(user_config):
-    with open(config_file, "w") as out_config:
-        json.dump(user_config, out_config)
+    config_dir = os.path.dirname(config_file)
+    if not os.path.isdir(config_dir):
+        try:
+            os.makedirs(config_dir)
+        except:
+            return False
+    try:
+        with open(config_file, "w") as out_config:
+            json.dump(user_config, out_config)
+        return True
+    except:
+        return False
 
 
 if __name__ == '__main__':
-    print config_file
+    pass
