@@ -27,14 +27,15 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 
 from pysub_objects import Video, OpenSubtitlesServer
-import ui_design
 import settings
+from ui import main_window
 
 
-class PySubGUI(QDialog, ui_design.Ui_Dialog):
+class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
     def __init__(self, parent=None):
         super(PySubGUI, self).__init__(parent)
         self.setupUi(self)
+        self.settings_widget.setVisible(False)
 
         self.file_model = QStandardItemModel(0, 6, parent)
         self.sub_model = QStandardItemModel(0, 4, parent)
@@ -48,6 +49,122 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
         self.c_video_index = -1
         self.download_mode = False
         self.update_file_table()
+
+        self.actionAddFiles.triggered.connect(self.add_files)
+        self.actionAddFolder.triggered.connect(self.add_folder)
+        self.actionClearList.triggered.connect(self.clear_list)
+
+        self.actionSearch.triggered.connect(self.start_search)
+        self.actionStop.triggered.connect(self.stop_search)
+        self.actionStop.setEnabled(True)
+        # fixme: for some reason setEnabled(True) is impossible to set in qt designer
+
+        self.actionDownload.triggered.connect(self.download)
+        self.actionSkip.triggered.connect(self.skip)
+
+        self.actionSettings.triggered.connect(self.toggle_settings)
+        self.actionExitSettings.triggered.connect(self.toggle_settings)
+
+        self.actionAbout.triggered.connect(self.about)
+
+
+    # =========================================================================
+    # Toolbar Buttons/Actions
+    #=========================================================================
+
+
+    def add_files(self):
+        files = QFileDialog.getOpenFileNames(self, "Add Files",
+                                             QDir.homePath())
+        if files:
+            self.process_files(files[0])
+
+
+    def add_folder(self):
+        directory = QFileDialog.getExistingDirectory(self,
+                                                     "Add Folder",
+                                                     QDir.homePath())
+
+        if directory:
+            self.process_files(
+                [directory + os.sep + name for name in os.listdir(directory)])
+
+    def clear_list(self):
+        self.video_files = []
+        self.update_file_table()
+
+    def start_search(self):
+        self.actionAddFolder.setEnabled(False)
+        self.actionAddFiles.setEnabled(False)
+        self.actionClearList.setEnabled(False)
+
+        self.actionSearch.setVisible(False)
+        self.actionStop.setVisible(True)
+
+        self.search()
+
+    def stop_search(self):
+        self.actionAddFolder.setEnabled(True)
+        self.actionAddFiles.setEnabled(True)
+
+        self.actionSearch.setVisible(True)
+        self.actionStop.setVisible(False)
+
+        self.actionDownload.setEnabled(False)
+        self.actionSkip.setEnabled(False)
+
+        self.c_video_index = -1
+
+        self.update_file_table()
+
+    def download(self):
+        if self.file_list.selectionModel().selectedRows():
+            try:
+                sub_index = self.file_list.selectionModel().selectedRows()[0].row() - 1
+            except:  # no sub selected
+                QMessageBox.information(self, "Not selected",
+                                        "Please select the subtitle  you want to download"
+                                        "before clicking 'Download' button")
+                return
+        else:
+            return
+
+        self.statusBar.showMessage("Downloading...")
+        self.video_files[self.c_video_index].subtitles[sub_index].download()
+
+        self.statusBar.showMessage("Subtitle downloaded for {}".format(
+            self.video_files[self.c_video_index].file_name))
+        self.search()
+
+    def skip(self):
+        self.search()
+
+    def toggle_settings(self):
+        self.actionSettings.setVisible(not self.actionSettings.isVisible())
+        self.actionExitSettings.setVisible(not self.actionSettings.isVisible())
+
+        #Not implemented in UI yet
+        # def auto_download(self):
+        #     downloaded = self.video_files[self.c_video_index].auto_download()
+        #     if self.config['not_found_prompt'] and not downloaded:
+        #         self.search(index=self.c_video_index)
+        #     else:
+        #         self.search()
+        #
+        # def remove_selected(self):
+        #     rows = self.file_list.selectionModel().selectedRows()
+        #     rm_indexes = [row.row() for row in rows]
+        #     if rm_indexes:
+        #         self.video_files = [v for v in self.video_files
+        #                             if self.video_files.index(v) not in rm_indexes]
+        #     self.update_file_table()
+
+    def about(self):
+        self.statusBar.showMessage("Not implemented yet.")
+
+    #=========================================================================
+    #   Configuration/Settings
+    #=========================================================================
 
     def __load_config(self, force_default=False):
         if force_default:
@@ -114,9 +231,28 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
                                  "or reset to default settings and then save")
             return
 
-        settings.save_config(new_config)
+        if not settings.save_config(new_config):
+            QMessageBox.critical(self, "Save error",
+                                 "Saving new configuration has failed. "
+                                 "The required file or folder could not be saved or created "
+                                 "as '{}'".format(settings.config_file))
 
         self.__load_config()
+
+    @Slot()
+    def on_btn_reset_conf_clicked(self):
+        self.__load_config(force_default=True)
+
+    @Slot()
+    def on_btn_apply_clicked(self):
+        #TODO: Add applying settings to this session only
+        pass
+
+
+    #=========================================================================
+    #   Backend - logging to server, downloading subtitles etc
+    #=========================================================================
+
 
     def __login_to_server(self):
         if self.server:
@@ -127,106 +263,7 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
                                           self.config['lang'])
         self.server.login()
 
-    @Slot()
-    def on_btn_add_folder_clicked(self):
-        directory = QFileDialog.getExistingDirectory(self,
-                                                     "Add Folder",
-                                                     QDir.homePath())
-
-        if directory:
-            self.add_files(
-                [directory + os.sep + name for name in os.listdir(directory)])
-
-    @Slot()
-    def on_btn_add_file_clicked(self):
-        files = QFileDialog.getOpenFileNames(self, "Add Files",
-                                             QDir.homePath())
-        if files:
-            self.add_files(files[0])
-
-    @Slot()
-    def on_btn_start_clicked(self):
-        self.change_mode()
-
-    @Slot()
-    def on_btn_skip_clicked(self):
-        if self.btn_skip.text() == "Remove selected":
-            rows = self.file_list.selectionModel().selectedRows()
-            rm_indexes = [row.row() for row in rows]
-            if rm_indexes:
-                self.video_files = [v for v in self.video_files
-                                    if self.video_files.index(
-                        v) not in rm_indexes]
-                self.update_file_table()
-        else:
-            self.search()
-
-    @Slot()
-    def on_btn_auto_dl_clicked(self):
-        if self.btn_auto_dl.text() == "Remove all":
-            self.video_files = []
-            self.update_file_table()
-        else:
-            downloaded = self.video_files[self.c_video_index].auto_download()
-            if self.config['not_found_prompt'] and not downloaded:
-                self.search(index=self.c_video_index)
-            else:
-                self.search()
-
-    @Slot()
-    def on_btn_dl_sel_clicked(self):
-        if self.file_list.selectionModel().selectedRows():
-            try:
-                sub_index = self.file_list.selectionModel().selectedRows()[0].row()
-            except:  # no sub selected
-                QMessageBox.information(self, "Not selected",
-                                        "Please select the subtitle  you want to download"
-                                        "before clicking 'Download' button")
-                return
-        else:
-            return
-
-        self.video_files[self.c_video_index].subtitles[sub_index].download()
-        self.search()
-
-    @Slot()
-    def on_btn_reset_conf_clicked(self):
-        self.__load_config(force_default=True)
-
-
-    def change_mode(self):
-        if self.download_mode:
-            self.download_mode = False
-
-            self.btn_add_folder.setEnabled(True)
-            self.btn_add_file.setEnabled(True)
-
-            self.btn_start.setText("Start searching")
-
-            self.btn_skip.setEnabled(False)
-            self.btn_auto_dl.setEnabled(False)
-            self.btn_dl_sel.setEnabled(False)
-
-            self.c_video_index = -1
-
-            self.update_file_table()
-        else:
-            self.download_mode = True
-
-            self.btn_add_folder.setEnabled(False)
-            self.btn_add_file.setEnabled(False)
-            self.btn_start.setText("Stop")
-
-            self.btn_skip.setEnabled(True)
-            self.btn_auto_dl.setEnabled(True)
-            self.btn_dl_sel.setEnabled(True)
-
-            self.btn_skip.setText("Skip")
-            self.btn_auto_dl.setText("Auto download")
-            self.search()
-
-
-    def add_files(self, file_list):
+    def process_files(self, file_list):
         for video_file in file_list:
             if os.path.splitext(video_file)[1] in self.config['file_ext']:
                 new_video = Video(video_file, self.config)
@@ -236,7 +273,7 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
 
         if self.file_list:
             self.update_file_table()
-            self.btn_start.setEnabled(True)
+            self.actionSearch.setEnabled(True)
 
     def auto_search_all(self):
         for index, video in enumerate(self.video_files):
@@ -252,7 +289,7 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
             self.c_video_index += 1
 
         if self.c_video_index >= len(self.video_files):
-            self.change_mode()
+            self.stop_search()
             return
         else:
             video = self.video_files[self.c_video_index]
@@ -280,14 +317,20 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
                 self.update_sub_table(video)
                 return
 
+    #=========================================================================
+    #   Table models
+    #=========================================================================
+
+
     def update_file_table(self):
 
         self.status_label.setText("List of video files:")
 
         self.file_model.clear()
+        self.file_model = QStandardItemModel(0, 6, None)
 
         for row_num, video in enumerate(self.video_files):
-            vid_index = QStandardItem(str(row_num))
+            vid_index = QStandardItem(str(row_num + 1))
             vid_filename = QStandardItem(video.file_name)
             vid_series = QStandardItem(video.ep_info.get('series', 'Unknown'))
             vid_season = QStandardItem(str(video.ep_info.get('season', 'Unknown')))
@@ -313,40 +356,26 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
         for i in range(5):
             self.file_list.resizeColumnToContents(i)
 
-        if self.video_files:
-            self.btn_start.setEnabled(True)
+        self.actionSearch.setEnabled(bool(self.video_files))
+        self.actionClearList.setEnabled(bool(self.video_files))
 
-            self.btn_skip.setText("Remove selected")
-            self.btn_skip.setEnabled(True)
-
-            self.btn_auto_dl.setText("Remove all")
-            self.btn_auto_dl.setEnabled(True)
-        else:
-            self.btn_start.setEnabled(False)
-
-            self.btn_skip.setText("")
-            self.btn_skip.setEnabled(False)
-
-            self.btn_auto_dl.setText("")
-            self.btn_auto_dl.setEnabled(False)
 
     def update_sub_table(self, video):
         self.sub_model.clear()
 
-        self.status_label.setText("Subtitles for: '{}'".format(
-            video.file_name))
+        self.status_label.setText("Subtitles for: '{}'".format(video.file_name))
 
         if not video.subtitles:
             self.sub_model.setItem(0, 0, QStandardItem("N/A"))
             self.sub_model.setItem(0, 1, QStandardItem("N/A"))
             self.sub_model.setItem(0, 2, QStandardItem("Subtitle not found"))
             self.sub_model.setItem(0, 3, QStandardItem("N/A"))
-            self.btn_dl_sel.setEnabled(False)
-            self.btn_auto_dl.setEnabled(False)
+            self.actionDownload.setEnabled(False)
+            self.actionSkip.setEnabled(True)
 
         else:
             for row, sub in enumerate(video.subtitles):
-                sub_index = QStandardItem(str(row))
+                sub_index = QStandardItem(str(row + 1))
                 sub_downloads = QStandardItem(str(sub.download_count))
                 sub_name = QStandardItem(sub.sub_filename)
                 sub_synced = QStandardItem("Yes" if sub.synced else "No")
@@ -356,9 +385,8 @@ class PySubGUI(QDialog, ui_design.Ui_Dialog):
                 self.sub_model.setItem(row, 2, sub_name)
                 self.sub_model.setItem(row, 3, sub_synced)
 
-            self.btn_dl_sel.setEnabled(True)
-            self.btn_auto_dl.setEnabled(True)
-            self.btn_skip.setEnabled(True)
+            self.actionDownload.setEnabled(True)
+            self.actionSkip.setEnabled(True)
 
         self.sub_model.setHeaderData(0, Qt.Horizontal, '#')
         self.sub_model.setHeaderData(1, Qt.Horizontal, 'Downloads')
