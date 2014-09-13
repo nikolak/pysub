@@ -3,6 +3,7 @@
 
 import os
 import sys
+import pysub
 
 try:
     from setuptools import setup
@@ -14,11 +15,11 @@ if sys.argv[-1] == 'publish':
     sys.exit()
 
 readme = open('README.md').read()
-history = open('HISTORY.rst').read().replace('.. :changelog:', '')
+history = open('CHANGELOG.md').read()
 
 setup(
     name='pysub',
-    version='0.3',
+    version=pysub.__version__,
     description='Subtitle downloader written in python, using opensubtitles.com API',
     long_description=readme + '\n\n' + history,
     author='Nikola Kovacevic',
@@ -51,7 +52,8 @@ setup(
         'Programming Language :: Python :: 2 :: Only',
         'Programming Language :: Python :: 2.7',
         'Operating System :: OS Independent',
-        'Environment :: Console'
+        'Environment :: Console',
+        'Environment :: X11 Applications'
     ],
     test_suite='tests',
 )
