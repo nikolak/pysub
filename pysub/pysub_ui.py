@@ -30,6 +30,35 @@ from pysub_objects import Video, OpenSubtitlesServer
 import settings
 from ui import main_window
 
+video_files = []
+to_process = []
+video_config = None
+
+class WorkThread(QThread):
+
+    def __init__(self):
+        QThread.__init__(self)
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        global to_process, video_files, video_config
+        self.running=True
+        for file_path in to_process:
+            if not self.running:
+                break
+            new_video=Video(file_path, video_config)
+            video_files.append(new_video)
+            self.emit(SIGNAL('update(QString)'), new_video.file_name)
+
+        self.emit(SIGNAL('done()'))
+
+
+    def stop(self):
+        self.running=False
+
+
 
 class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
     def __init__(self, parent=None):
@@ -68,9 +97,9 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.actionAbout.triggered.connect(self.about)
 
 
-    # =========================================================================
-    # Toolbar Buttons/Actions
-    #=========================================================================
+# =========================================================================
+# Toolbar Buttons/Actions
+# #=========================================================================
 
 
     def add_files(self):
@@ -90,6 +119,9 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
                 [directory + os.sep + name for name in os.listdir(directory)])
 
     def clear_list(self):
+        global to_process
+        global video_files
+        to_process, video_files = [], []
         self.video_files = []
         self.update_file_table()
 
@@ -162,9 +194,9 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
     def about(self):
         self.statusBar.showMessage("Not implemented yet.")
 
-    #=========================================================================
-    #   Configuration/Settings
-    #=========================================================================
+#=========================================================================
+#   Configuration/Settings
+#=========================================================================
 
     def __load_config(self, force_default=False):
         if force_default:
@@ -249,9 +281,9 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         pass
 
 
-    #=========================================================================
-    #   Backend - logging to server, downloading subtitles etc
-    #=========================================================================
+#=========================================================================
+#   Backend - logging to server, downloading subtitles etc
+#=========================================================================
 
 
     def __login_to_server(self):
@@ -264,16 +296,24 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.server.login()
 
     def process_files(self, file_list):
+        global video_files, to_process, video_config
+        video_config=self.config
         for video_file in file_list:
             if os.path.splitext(video_file)[1] in self.config['file_ext']:
-                new_video = Video(video_file, self.config)
-                self.video_files.append(new_video)
-            else:
-                pass
+                to_process.append(video_file)
 
-        if self.file_list:
-            self.update_file_table()
-            self.actionSearch.setEnabled(True)
+        self.workThread = WorkThread()
+        self.connect( self.workThread, SIGNAL("update(QString)"), self.add_progress )
+        self.connect(self.workThread, SIGNAL("done()"), self.done)
+        self.workThread.start()
+
+    def add_progress(self, text):
+        self.statusBar.showMessage("Processed: {}".format(text.encode('utf-8')))
+
+    def done(self):
+        global video_files
+        self.video_files=video_files
+        self.update_file_table()
 
     def auto_search_all(self):
         for index, video in enumerate(self.video_files):
@@ -317,9 +357,9 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
                 self.update_sub_table(video)
                 return
 
-    #=========================================================================
-    #   Table models
-    #=========================================================================
+#=========================================================================
+#   Table models
+#=========================================================================
 
 
     def update_file_table(self):
