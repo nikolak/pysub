@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'pysub/ui/main_window.ui'
 #
-# Created: Sat Sep 13 13:45:15 2014
+# Created: Mon Sep 15 20:03:14 2014
 #      by: pyside-uic 0.2.15 running on PySide 1.2.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(699, 510)
+        MainWindow.resize(699, 519)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/icons/resources/icon.svg"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
@@ -30,12 +30,6 @@ class Ui_MainWindow(object):
         self.verticalLayout_4 = QtGui.QVBoxLayout(self.main_wdiget)
         self.verticalLayout_4.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
-        self.status_label = QtGui.QLabel(self.main_wdiget)
-        font = QtGui.QFont()
-        font.setItalic(True)
-        self.status_label.setFont(font)
-        self.status_label.setObjectName("status_label")
-        self.verticalLayout_4.addWidget(self.status_label)
         self.file_list = QtGui.QTreeView(self.main_wdiget)
         self.file_list.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
         self.file_list.setProperty("showDropIndicator", False)
@@ -48,6 +42,19 @@ class Ui_MainWindow(object):
         self.file_list.setExpandsOnDoubleClick(False)
         self.file_list.setObjectName("file_list")
         self.verticalLayout_4.addWidget(self.file_list)
+        self.horizontalLayout = QtGui.QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.progressBar = QtGui.QProgressBar(self.main_wdiget)
+        self.progressBar.setProperty("value", 0)
+        self.progressBar.setTextVisible(True)
+        self.progressBar.setFormat("")
+        self.progressBar.setObjectName("progressBar")
+        self.horizontalLayout.addWidget(self.progressBar)
+        self.btn_cancel_add = QtGui.QPushButton(self.main_wdiget)
+        self.btn_cancel_add.setFlat(False)
+        self.btn_cancel_add.setObjectName("btn_cancel_add")
+        self.horizontalLayout.addWidget(self.btn_cancel_add)
+        self.verticalLayout_4.addLayout(self.horizontalLayout)
         self.verticalLayout_2.addWidget(self.main_wdiget)
         self.settings_widget = QtGui.QWidget(self.centralwidget)
         self.settings_widget.setEnabled(True)
@@ -326,7 +333,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QtGui.QApplication.translate("MainWindow", "MainWindow", None, QtGui.QApplication.UnicodeUTF8))
-        self.status_label.setText(QtGui.QApplication.translate("MainWindow", "<html><head/><body><p>List of video files:</p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
+        self.btn_cancel_add.setText(QtGui.QApplication.translate("MainWindow", "Cancel", None, QtGui.QApplication.UnicodeUTF8))
         self.chk_auto_dl.setText(QtGui.QApplication.translate("MainWindow", "Auto Download Subtitles", None, QtGui.QApplication.UnicodeUTF8))
         self.lbl_auto_dl.setText(QtGui.QApplication.translate("MainWindow", "<html><head/><body><p><span style=\" color:#747474;\">Skips asking you which subtitle to download for every file and will automatically picks best one it can find. </span></p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
         self.chk_overwrite.setText(QtGui.QApplication.translate("MainWindow", "Overwrite Existing Subs", None, QtGui.QApplication.UnicodeUTF8))

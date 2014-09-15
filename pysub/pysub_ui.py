@@ -30,12 +30,13 @@ from pysub_objects import Video, OpenSubtitlesServer
 import settings
 from ui import main_window
 
+
 video_files = []
 to_process = []
 video_config = None
 
-class WorkThread(QThread):
 
+class addThread(QThread):
     def __init__(self):
         QThread.__init__(self)
 
@@ -43,21 +44,19 @@ class WorkThread(QThread):
         self.wait()
 
     def run(self):
-        global to_process, video_files, video_config
-        self.running=True
-        for file_path in to_process:
+        self.running = True
+        for number, file_path in enumerate(to_process):
             if not self.running:
                 break
-            new_video=Video(file_path, video_config)
+            new_video = Video(file_path, video_config)
             video_files.append(new_video)
-            self.emit(SIGNAL('update(QString)'), new_video.file_name)
+            self.emit(SIGNAL('update(QString)'), str(number))
 
         self.emit(SIGNAL('done()'))
 
 
     def stop(self):
-        self.running=False
-
+        self.running = False
 
 
 class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
@@ -65,6 +64,10 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         super(PySubGUI, self).__init__(parent)
         self.setupUi(self)
         self.settings_widget.setVisible(False)
+        self.btn_cancel_add.setVisible(False)
+        self.progressBar.setVisible(False)
+        self.actionStop.setEnabled(True)
+        # fixme: for some reason setEnabled(True) is impossible to set in qt designer
 
         self.file_model = QStandardItemModel(0, 6, parent)
         self.sub_model = QStandardItemModel(0, 4, parent)
@@ -85,8 +88,6 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
         self.actionSearch.triggered.connect(self.start_search)
         self.actionStop.triggered.connect(self.stop_search)
-        self.actionStop.setEnabled(True)
-        # fixme: for some reason setEnabled(True) is impossible to set in qt designer
 
         self.actionDownload.triggered.connect(self.download)
         self.actionSkip.triggered.connect(self.skip)
@@ -97,9 +98,9 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.actionAbout.triggered.connect(self.about)
 
 
-# =========================================================================
+#=========================================================================
 # Toolbar Buttons/Actions
-# #=========================================================================
+#=========================================================================
 
 
     def add_files(self):
@@ -119,9 +120,9 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
                 [directory + os.sep + name for name in os.listdir(directory)])
 
     def clear_list(self):
-        global to_process
-        global video_files
+        global to_process, video_files
         to_process, video_files = [], []
+
         self.video_files = []
         self.update_file_table()
 
@@ -175,7 +176,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.actionSettings.setVisible(not self.actionSettings.isVisible())
         self.actionExitSettings.setVisible(not self.actionSettings.isVisible())
 
-        #Not implemented in UI yet
+        # Not implemented in UI yet
         # def auto_download(self):
         #     downloaded = self.video_files[self.c_video_index].auto_download()
         #     if self.config['not_found_prompt'] and not downloaded:
@@ -193,6 +194,11 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
     def about(self):
         self.statusBar.showMessage("Not implemented yet.")
+
+    @Slot()
+    def on_btn_cancel_add_clicked(self):
+        if self.addThread:
+            self.addThread.stop()
 
 #=========================================================================
 #   Configuration/Settings
@@ -277,7 +283,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
     @Slot()
     def on_btn_apply_clicked(self):
-        #TODO: Add applying settings to this session only
+        # TODO: Add applying settings to this session only
         pass
 
 
@@ -297,25 +303,33 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
     def process_files(self, file_list):
         global video_files, to_process, video_config
-        video_config=self.config
+        video_config = self.config
         for video_file in file_list:
             if os.path.splitext(video_file)[1] in self.config['file_ext']:
                 to_process.append(video_file)
 
-        self.workThread = WorkThread()
-        self.connect( self.workThread, SIGNAL("update(QString)"), self.add_progress )
-        self.connect(self.workThread, SIGNAL("done()"), self.done)
-        self.workThread.start()
+        self.addThread = addThread()
+
+        self.connect(self.addThread, SIGNAL("update(QString)"), self.add_progress)
+        self.connect(self.addThread, SIGNAL("done()"), self.done_adding)
+
+        self.addThread.start()
+        self.progressBar.setVisible(True)
+        self.btn_cancel_add.setVisible(True)
 
     def add_progress(self, text):
-        self.statusBar.showMessage("Processed: {}".format(text.encode('utf-8')))
+        self.progressBar.setMaximum(len(to_process))
+        self.progressBar.setValue(int(text))
+        self.progressBar.setFormat("Processed: {} out of {} files".format(text, len(to_process)))
 
-    def done(self):
-        global video_files
-        self.video_files=video_files
+    def done_adding(self):
+        self.video_files = video_files
         self.update_file_table()
+        self.btn_cancel_add.setVisible(False)
+        self.progressBar.setVisible(False)
 
     def auto_search_all(self):
+        #TODO: Not implemented
         for index, video in enumerate(self.video_files):
             if self.config['not_found_prompt'] and not video.auto_download():
                 self.search(index)
@@ -364,8 +378,6 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
     def update_file_table(self):
 
-        self.status_label.setText("List of video files:")
-
         self.file_model.clear()
         self.file_model = QStandardItemModel(0, 6, None)
 
@@ -403,7 +415,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
     def update_sub_table(self, video):
         self.sub_model.clear()
 
-        self.status_label.setText("Subtitles for: '{}'".format(video.file_name))
+        # self.status_label.setText("Subtitles for: '{}'".format(video.file_name))
 
         if not video.subtitles:
             self.sub_model.setItem(0, 0, QStandardItem("N/A"))
