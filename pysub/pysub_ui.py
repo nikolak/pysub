@@ -59,6 +59,19 @@ class addThread(QThread):
         self.running = False
 
 
+class NumberSortModel(QSortFilterProxyModel):
+
+    def lessThan(self, left, right):
+        try:
+            lvalue = int(left.data())
+            rvalue = int(right.data())
+        except ValueError:
+            lvalue = left.data()
+            rvalue = right.data()
+
+        return lvalue < rvalue
+
+
 class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
     def __init__(self, parent=None):
         super(PySubGUI, self).__init__(parent)
@@ -403,7 +416,9 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.file_model.setHeaderData(4, Qt.Horizontal, 'Episode')
         self.file_model.setHeaderData(5, Qt.Horizontal, 'Sub Exists')
 
-        self.file_list.setModel(self.file_model)
+        number_proxy = NumberSortModel()
+        number_proxy.setSourceModel(self.file_model)
+        self.file_list.setModel(number_proxy)
 
         for i in range(5):
             self.file_list.resizeColumnToContents(i)
@@ -445,7 +460,9 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.sub_model.setHeaderData(2, Qt.Horizontal, 'File Name')
         self.sub_model.setHeaderData(3, Qt.Horizontal, 'Synced')
 
-        self.file_list.setModel(self.sub_model)
+        number_proxy = NumberSortModel()
+        number_proxy.setSourceModel(self.sub_model)
+        self.file_list.setModel(self.number_proxy)
 
         for i in range(3):
             self.file_list.resizeColumnToContents(i)
