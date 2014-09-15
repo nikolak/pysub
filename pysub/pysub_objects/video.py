@@ -149,7 +149,7 @@ class Video(object):
         for sub_format in self.config['sub_ext']:
             for name in possible_filenames:
                 for folder in possible_folders:
-                    if os.path.exists("{}{}{}".format(folder, name, sub_format)):
+                    if os.path.exists("{}{}{}".format(folder, name.encode('utf-8'), sub_format)):
                         return True
         return False
 
@@ -228,13 +228,11 @@ class Video(object):
 
             sub_info = guessit.guess_episode_info(subtitle.sub_filename)
 
-            sub_series = sub_info.get('series', "None Found").lower().encode(
-                'utf-8')
+            sub_series = sub_info.get('series', "None Found").lower().encode('utf-8')
             sub_season = sub_info.get('season', None)
             sub_episode = sub_info.get('episodeNumber', None)
 
-            vid_series = self.ep_info.get('series', "None").lower().encode(
-                'utf-8')
+            vid_series = self.ep_info.get('series', "None").lower().encode('utf-8')
             vid_season = self.ep_info.get('season', None)
             vid_episode = self.ep_info.get('episodeNumber', None)
 
