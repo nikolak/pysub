@@ -44,6 +44,13 @@
      <widget class="QWidget" name="main_wdiget" native="true">
       <layout class="QVBoxLayout" name="verticalLayout_4">
        <item>
+        <widget class="QLabel" name="status_label">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QTreeView" name="file_list">
          <property name="editTriggers">
           <set>QAbstractItemView::NoEditTriggers</set>

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'pysub/ui/main_window.ui'
 #
-# Created: Mon Sep 15 20:03:14 2014
+# Created: Tue Sep 16 18:32:53 2014
 #      by: pyside-uic 0.2.15 running on PySide 1.2.1
 #
 # WARNING! All changes made in this file will be lost!
@@ -30,6 +30,10 @@ class Ui_MainWindow(object):
         self.verticalLayout_4 = QtGui.QVBoxLayout(self.main_wdiget)
         self.verticalLayout_4.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
+        self.status_label = QtGui.QLabel(self.main_wdiget)
+        self.status_label.setText("")
+        self.status_label.setObjectName("status_label")
+        self.verticalLayout_4.addWidget(self.status_label)
         self.file_list = QtGui.QTreeView(self.main_wdiget)
         self.file_list.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
         self.file_list.setProperty("showDropIndicator", False)
