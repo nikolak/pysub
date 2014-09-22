@@ -3,7 +3,7 @@
 """
 Subtitle downloader using OpenSubtitles.org API
 
-GUI user interface
+GUI code
 """
 # Copyright 2014 Nikola Kovacevic <nikolak@outlook.com>
 #
@@ -23,37 +23,34 @@ import sys
 import os
 import json
 
-from PySide.QtCore import *
-from PySide.QtGui import *
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
 from pysub_objects import Video, OpenSubtitlesServer
 import settings
 from ui import main_window
 
 
-video_files = []
-to_process = []
-video_config = None
-
-
 class addThread(QThread):
-    def __init__(self):
+    def __init__(self, to_process, video_config):
         QThread.__init__(self)
+        self.to_process=to_process
+        self.processed=[]
+        self.config = video_config
 
     def __del__(self):
         self.wait()
 
     def run(self):
         self.running = True
-        for number, file_path in enumerate(to_process):
+        for number, file_path in enumerate(self.to_process):
             if not self.running:
                 break
-            new_video = Video(file_path, video_config)
-            video_files.append(new_video)
+
+            self.processed.append(Video(file_path, self.config))
             self.emit(SIGNAL('update(QString)'), str(number))
 
-        self.emit(SIGNAL('done()'))
-
+        self.emit(SIGNAL('done(PyQt_PyObject)'), self.processed)
 
     def stop(self):
         self.running = False
@@ -62,22 +59,17 @@ class addThread(QThread):
 class NumberSortModel(QSortFilterProxyModel):
 
     def lessThan(self, left, right):
-        try:
-            lvalue = int(left.data())
-            rvalue = int(right.data())
-        except ValueError:
-            lvalue = left.data()
-            rvalue = right.data()
-
-        return lvalue < rvalue
+        return left.data().toDouble()[0] > right.data().toDouble()[0]
 
 
 class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
+    # noinspection PyUnresolvedReferences
     def __init__(self, parent=None):
         super(PySubGUI, self).__init__(parent)
         self.setupUi(self)
         self.settings_widget.setVisible(False)
         self.btn_cancel_add.setVisible(False)
+        self.status_label.setVisible(False)
         self.progressBar.setVisible(False)
         self.actionStop.setEnabled(True)
         # fixme: for some reason setEnabled(True) is impossible to set in qt designer
@@ -95,6 +87,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.download_mode = False
         self.update_file_table()
 
+        # Toolbar
         self.actionAddFiles.triggered.connect(self.add_files)
         self.actionAddFolder.triggered.connect(self.add_folder)
         self.actionClearList.triggered.connect(self.clear_list)
@@ -110,6 +103,13 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
         self.actionAbout.triggered.connect(self.about)
 
+        # Main UI
+        self.btn_cancel_add.clicked.connect(self.cancel_add)
+
+        # Settings
+        self.btn_save_conf.clicked.connect(self.save_settings)
+        self.btn_reset_conf.clicked.connect(self.reset_settings)
+        self.btn_apply.clicked.connect(self.apply_settings)
 
 #=========================================================================
 # Toolbar Buttons/Actions
@@ -119,8 +119,8 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
     def add_files(self):
         files = QFileDialog.getOpenFileNames(self, "Add Files",
                                              QDir.homePath())
-        if files:
-            self.process_files(files[0])
+        if files[0]:
+            self.process_files([str(files[0])])
 
 
     def add_folder(self):
@@ -130,7 +130,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
         if directory:
             self.process_files(
-                [directory + os.sep + name for name in os.listdir(directory)])
+                [str(directory) + os.sep + name for name in os.listdir(directory)])
 
     def clear_list(self):
         global to_process, video_files
@@ -208,8 +208,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
     def about(self):
         self.statusBar.showMessage("Not implemented yet.")
 
-    @Slot()
-    def on_btn_cancel_add_clicked(self):
+    def cancel_add(self):
         if self.addThread:
             self.addThread.stop()
 
@@ -257,8 +256,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.lne_ua.setText(self.config['ua'])
         self.lne_server.setText(self.config['server'])
 
-    @Slot()
-    def on_btn_save_conf_clicked(self):
+    def save_settings(self):
         try:
             new_config = {}
             new_config['file_ext'] = json.loads(self.txt_file_ext.toPlainText())
@@ -288,14 +286,14 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
                                  "The required file or folder could not be saved or created "
                                  "as '{}'".format(settings.config_file))
 
+            return
+
         self.__load_config()
 
-    @Slot()
-    def on_btn_reset_conf_clicked(self):
+    def reset_settings(self):
         self.__load_config(force_default=True)
 
-    @Slot()
-    def on_btn_apply_clicked(self):
+    def apply_settings(self):
         # TODO: Add applying settings to this session only
         pass
 
@@ -315,28 +313,28 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.server.login()
 
     def process_files(self, file_list):
-        global video_files, to_process, video_config
-        video_config = self.config
+        to_process=[]
+
         for video_file in file_list:
             if os.path.splitext(video_file)[1] in self.config['file_ext']:
                 to_process.append(video_file)
 
-        self.addThread = addThread()
+        self.addThread = addThread(to_process, self.config)
 
         self.connect(self.addThread, SIGNAL("update(QString)"), self.add_progress)
-        self.connect(self.addThread, SIGNAL("done()"), self.done_adding)
+        self.connect(self.addThread, SIGNAL("done(PyQt_PyObject)"), self.done_adding)
 
         self.addThread.start()
         self.progressBar.setVisible(True)
         self.btn_cancel_add.setVisible(True)
 
     def add_progress(self, text):
-        self.progressBar.setMaximum(len(to_process))
+        self.progressBar.setMaximum(len(self.addThread.to_process))
         self.progressBar.setValue(int(text))
-        self.progressBar.setFormat("Processed: {} out of {} files".format(text, len(to_process)))
+        self.progressBar.setFormat("Processed: {} out of {} files".format(text, len(self.addThread.to_process)))
 
-    def done_adding(self):
-        self.video_files = video_files
+    def done_adding(self, processed_files):
+        self.video_files.extend(processed_files)
         self.update_file_table()
         self.btn_cancel_add.setVisible(False)
         self.progressBar.setVisible(False)
@@ -426,11 +424,15 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.actionSearch.setEnabled(bool(self.video_files))
         self.actionClearList.setEnabled(bool(self.video_files))
 
+        if self.status_label.isVisible():
+            self.status_label.setVisible(False)
+
 
     def update_sub_table(self, video):
         self.sub_model.clear()
 
-        # self.status_label.setText("Subtitles for: '{}'".format(video.file_name))
+        self.status_label.setVisible(True)
+        self.status_label.setText("Choose subtitle for: '{}'".format(video.file_name))
 
         if not video.subtitles:
             self.sub_model.setItem(0, 0, QStandardItem("N/A"))
@@ -462,7 +464,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
         number_proxy = NumberSortModel()
         number_proxy.setSourceModel(self.sub_model)
-        self.file_list.setModel(self.number_proxy)
+        self.file_list.setModel(number_proxy)
 
         for i in range(3):
             self.file_list.resizeColumnToContents(i)
