@@ -50,5 +50,5 @@ dist: clean
 	ls -l dist
 
 build-ui:
-	pyside-uic pysub/ui/main_window.ui -o pysub/ui/main_window.py
-	pyside-rcc pysub/ui/resources.qrc -o pysub/ui/resources_rc.py
+	pyuic4 pysub/ui/main_window.ui -o pysub/ui/main_window.py
+	pyuic4 pysub/ui/resources.qrc -o pysub/ui/resources_rc.py
