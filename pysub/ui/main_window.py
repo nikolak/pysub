@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'ui/main_window.ui'
+# Form implementation generated from reading ui file 'pysub/ui/main_window.ui'
 #
-# Created: Sat Sep 20 22:19:20 2014
+# Created: Fri Sep 26 19:08:00 2014
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -343,10 +343,6 @@ class Ui_MainWindow(object):
 
         self.retranslateUi(MainWindow)
         self.bx_settings.setCurrentIndex(0)
-        QtCore.QObject.connect(self.actionSettings, QtCore.SIGNAL(_fromUtf8("triggered()")), self.main_wdiget.hide)
-        QtCore.QObject.connect(self.actionExitSettings, QtCore.SIGNAL(_fromUtf8("triggered()")), self.main_wdiget.show)
-        QtCore.QObject.connect(self.actionSettings, QtCore.SIGNAL(_fromUtf8("triggered()")), self.settings_widget.show)
-        QtCore.QObject.connect(self.actionExitSettings, QtCore.SIGNAL(_fromUtf8("triggered()")), self.settings_widget.hide)
         QtCore.QObject.connect(self.chk_enable_advanced_sett, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.advanced_group_box.setEnabled)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
