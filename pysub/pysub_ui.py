@@ -80,7 +80,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
         self.config = None
         self.server = None
-        self.__load_config()
+        self.load_settings()
 
         self.video_files = []
         self.c_video_index = -1
@@ -133,7 +133,6 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
                 [str(directory) + os.sep + name for name in os.listdir(directory)])
 
     def clear_list(self):
-        global to_process, video_files
         to_process, video_files = [], []
 
         self.video_files = []
@@ -216,19 +215,26 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 #   Configuration/Settings
 #=========================================================================
 
-    def __load_config(self, force_default=False):
-        if force_default:
-            self.config = settings.default_config
+    def load_settings(self, force_default=False, from_dict=None):
+        if not from_dict:
+            if force_default:
+                self.config = settings.default_config
+            else:
+                self.config = settings.get_config()
         else:
-            self.config = settings.get_config()
+            if from_dict == self.config:
+                return
+
+            self.config = from_dict
 
         if self.server:
+            #TODO: Set to none only if server settings changed
             self.server = None
 
-        self.__update_settings_ui()
+        self.set_ui_config()
 
 
-    def __update_settings_ui(self):
+    def set_ui_config(self):
         auto_dl = self.config['auto_download']
         self.chk_auto_dl.setCheckState(Qt.Checked if auto_dl else Qt.Unchecked)
 
@@ -241,7 +247,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.lne_save_folder.setText(self.config['subfolder'])
 
         lang_list = sorted(self.config['languages'].keys())
-        # Move English and Serbian to the top of the list
+        # Move the currently selected language to the top of the list
         lang_list.insert(0, lang_list.pop(lang_list.index(self.config['lang_name'])))
         self.cbo_language.addItems(lang_list)
 
@@ -256,46 +262,55 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.lne_ua.setText(self.config['ua'])
         self.lne_server.setText(self.config['server'])
 
-    def save_settings(self):
+    def get_ui_config(self):
         try:
-            new_config = {}
-            new_config['file_ext'] = json.loads(self.txt_file_ext.toPlainText())
-            new_config['sub_ext'] = json.loads(self.txt_sub_ext.toPlainText())
-            new_config['overwrite'] = self.chk_overwrite.checkState() == Qt.Checked
-            new_config['auto_download'] = self.chk_auto_dl.checkState() == Qt.Checked
-            new_config['not_found_prompt'] = self.chk_prompt.checkState() == Qt.Checked
-            new_config['subfolder'] = None if self.lne_save_folder.text() == "" else self.lne_save_folder.text()
-            new_config['cutoff'] = float(self.sl_label.text()) / 100.00
-            new_config['languages'] = json.loads(self.txt_lang_json.toPlainText())
-            new_config['lang'] = self.config['languages'].get(self.cbo_language.currentText())
-            if not new_config['lang']:
-                raise ValueError("Wrong lang value")
-            new_config['lang_name'] = self.cbo_language.currentText()
-            new_config['ua'] = self.lne_ua.text()
-            new_config['server'] = self.lne_server.text()
+            ui_config = {'file_ext': json.loads(str(self.txt_file_ext.toPlainText())),
+                         'sub_ext': json.loads(str(self.txt_sub_ext.toPlainText())),
+                         'overwrite': self.chk_overwrite.checkState() == Qt.Checked,
+                         'auto_download': self.chk_auto_dl.checkState() == Qt.Checked,
+                         'not_found_prompt': self.chk_prompt.checkState() == Qt.Checked,
+                         'subfolder': None if str(self.lne_save_folder.text()) == "" else str(self.lne_save_folder.text()),
+                         'cutoff': float(str(self.sl_label.text())) / 100.00,
+                         'languages': json.loads(str(self.txt_lang_json.toPlainText())),
+                         'lang': self.config['languages'].get(str(self.cbo_language.currentText())),
+                         'lang_name': str(self.cbo_language.currentText()),
+                         'ua': str(self.lne_ua.text()),
+                         'server': str(self.lne_server.text())}
+
+            if not ui_config['lang']:
+                return None
+
+            return ui_config
         except:
+            return None
+
+    def save_settings(self, this_session_only=False):
+        ui_config = self.get_ui_config()
+
+        if not ui_config:
             QMessageBox.critical(self, "Save error",
                                  "Saving new configuration has failed."
                                  "Fix the configuration options manually "
                                  "or reset to default settings and then save")
-            return
+        else:
+            if not this_session_only:
+                if not settings.save_config(ui_config):
+                    QMessageBox.critical(self, "Save error",
+                                         "Saving new configuration has failed. "
+                                         "The required file or folder could not be saved or created "
+                                         "as '{}'".format(settings.config_file))
+                    return
 
-        if not settings.save_config(new_config):
-            QMessageBox.critical(self, "Save error",
-                                 "Saving new configuration has failed. "
-                                 "The required file or folder could not be saved or created "
-                                 "as '{}'".format(settings.config_file))
-
-            return
-
-        self.__load_config()
+            if this_session_only:
+                self.load_settings(from_dict=ui_config)
+            else:
+                self.load_settings()
 
     def reset_settings(self):
-        self.__load_config(force_default=True)
+        self.load_settings(force_default=True)
 
     def apply_settings(self):
-        # TODO: Add applying settings to this session only
-        pass
+        self.save_settings(this_session_only=True)
 
 
 #=========================================================================
@@ -314,6 +329,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
     def process_files(self, file_list):
         to_process=[]
+        self.actionSearch.setEnabled(False)
 
         for video_file in file_list:
             if os.path.splitext(video_file)[1] in self.config['file_ext']:
