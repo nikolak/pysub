@@ -119,7 +119,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
     def add_files(self):
         files = QFileDialog.getOpenFileNames(self, "Add Files",
                                              QDir.homePath())
-        if files[0]:
+        if files and files[0]:
             self.process_files([str(files[0])])
 
 
@@ -133,8 +133,6 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
                 [str(directory) + os.sep + name for name in os.listdir(directory)])
 
     def clear_list(self):
-        to_process, video_files = [], []
-
         self.video_files = []
         self.update_file_table()
 
@@ -185,8 +183,19 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.search()
 
     def toggle_settings(self):
-        self.actionSettings.setVisible(not self.actionSettings.isVisible())
-        self.actionExitSettings.setVisible(not self.actionSettings.isVisible())
+        if self.actionSettings.isVisible():
+            self.main_wdiget.hide()
+            self.settings_widget.show()
+            self.actionSettings.setVisible(False)
+            self.actionExitSettings.setVisible(True)
+        else:
+            self.main_wdiget.show()
+            self.settings_widget.hide()
+            self.actionSettings.setVisible(True)
+            self.actionExitSettings.setVisible(False)
+        # self.actionSettings.setVisible(not self.actionSettings.isVisible())
+        # self.actionExitSettings.setVisible(not self.actionSettings.isVisible())
+
 
         # Not implemented in UI yet
         # def auto_download(self):
@@ -306,11 +315,19 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
             else:
                 self.load_settings()
 
+            self.toggle_settings()
+
     def reset_settings(self):
         self.load_settings(force_default=True)
 
     def apply_settings(self):
         self.save_settings(this_session_only=True)
+        #TODO: Re-configuring is only necessary when certain things change
+        # like subfolder, this is a waste of time to do on each applied change
+        #FIXME: Should be fixed before v1.0
+        file_list = [v.file_path for v in self.video_files]
+        self.clear_list()
+        self.process_files(file_list)
 
 
 #=========================================================================
