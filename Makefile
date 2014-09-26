@@ -51,4 +51,4 @@ dist: clean
 
 build-ui:
 	pyuic4 pysub/ui/main_window.ui -o pysub/ui/main_window.py
-	pyuic4 pysub/ui/resources.qrc -o pysub/ui/resources_rc.py
+	pyrcc4 pysub/ui/resources.qrc -o pysub/ui/resources_rc.py
