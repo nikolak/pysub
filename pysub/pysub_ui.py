@@ -59,7 +59,11 @@ class addThread(QThread):
 class NumberSortModel(QSortFilterProxyModel):
 
     def lessThan(self, left, right):
-        return left.data().toDouble()[0] > right.data().toDouble()[0]
+        try:
+            return int(left.data().toString()) > int(right.data().toString())
+        except ValueError:
+            return left.data().toString() > right.data().toString()
+        # return left.data().toDouble()[0] > right.data().toDouble()[0]
 
 
 class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
@@ -76,7 +80,6 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
 
         self.file_model = QStandardItemModel(0, 6, parent)
         self.sub_model = QStandardItemModel(0, 4, parent)
-        self.file_list.setModel(self.file_model)
 
         self.config = None
         self.server = None
