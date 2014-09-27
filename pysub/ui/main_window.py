@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'pysub/ui/main_window.ui'
 #
-# Created: Fri Sep 26 19:08:00 2014
+# Created: Sat Sep 27 13:43:27 2014
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
