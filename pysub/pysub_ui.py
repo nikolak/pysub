@@ -25,11 +25,13 @@ import json
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+from PyQt4 import uic
 
 from pysub_objects import Video, OpenSubtitlesServer
 import settings
 from ui import main_window
 
+from __init__ import __version__
 
 class addThread(QThread):
     def __init__(self, to_process, video_config):
@@ -63,7 +65,6 @@ class NumberSortModel(QSortFilterProxyModel):
             return int(left.data().toString()) > int(right.data().toString())
         except ValueError:
             return left.data().toString() > right.data().toString()
-        # return left.data().toDouble()[0] > right.data().toDouble()[0]
 
 
 class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
@@ -77,6 +78,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.progressBar.setVisible(False)
         self.actionStop.setEnabled(True)
         # fixme: for some reason setEnabled(True) is impossible to set in qt designer
+        self.setWindowTitle("PySub {}".format(__version__))
 
         self.file_model = QStandardItemModel(0, 6, parent)
         self.sub_model = QStandardItemModel(0, 4, parent)
@@ -217,7 +219,24 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         #     self.update_file_table()
 
     def about(self):
-        self.statusBar.showMessage("Not implemented yet.")
+        dialog = QDialog()
+        dialog.ui = uic.loadUi('ui/about_dialog.ui', dialog)
+        dialog.setAttribute(Qt.WA_DeleteOnClose)
+        dialog.ui.btn_license.clicked.connect(self.show_license)
+        dialog.ui.btn_credits.clicked.connect(self.show_credits)
+        dialog.exec_()
+
+    def show_license(self):
+        dialog = QDialog()
+        dialog.ui = uic.loadUi('ui/license_dialog.ui', dialog)
+        dialog.setAttribute(Qt.WA_DeleteOnClose)
+        dialog.exec_()
+
+    def show_credits(self):
+        dialog = QDialog()
+        dialog.ui = uic.loadUi('ui/credits_dialog.ui', dialog)
+        dialog.setAttribute(Qt.WA_DeleteOnClose)
+        dialog.exec_()
 
     def cancel_add(self):
         if self.addThread:
