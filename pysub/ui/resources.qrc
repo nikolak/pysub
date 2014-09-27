@@ -13,6 +13,7 @@
     <file alias="settings">svg/tools6.svg</file>
   </qresource>
   <qresource prefix="icons">
+    <file alias="logo_png">svg/logo.png</file>
     <file alias="logo">svg/icon.svg</file>
     <file alias="github">svg/github4.svg</file>
     <file alias="paypal">svg/paypal10.svg</file>
