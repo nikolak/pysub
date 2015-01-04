@@ -31,7 +31,7 @@ setup(
     ],
     package_dir={'pysub': 'pysub'},
     include_package_data=True,
-    install_requires=["guessit==0.9.1",
+    install_requires=["guessit==0.10.0",
                       "appdirs==1.4.0"
     ],
     entry_points={
