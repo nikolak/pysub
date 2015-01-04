@@ -78,7 +78,8 @@ def search_subtitles(file_list, config):
 
         download_prompt(video)
 
-    server.log_out()
+    if server:
+        server.log_out()
 
 
 # noinspection PyTypeChecker
