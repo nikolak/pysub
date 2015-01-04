@@ -22,22 +22,22 @@ GUI code
 import sys
 import os
 import json
+from PyQt4 import uic
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-from PyQt4 import uic
 
 from pysub_objects import Video, OpenSubtitlesServer
 import settings
 from ui import main_window
-
 from __init__ import __version__
+
 
 class addThread(QThread):
     def __init__(self, to_process, video_config):
         QThread.__init__(self)
-        self.to_process=to_process
-        self.processed=[]
+        self.to_process = to_process
+        self.processed = []
         self.config = video_config
 
     def __del__(self):
@@ -59,7 +59,6 @@ class addThread(QThread):
 
 
 class NumberSortModel(QSortFilterProxyModel):
-
     def lessThan(self, left, right):
         try:
             return int(left.data().toString()) > int(right.data().toString())
@@ -198,25 +197,6 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
             self.settings_widget.hide()
             self.actionSettings.setVisible(True)
             self.actionExitSettings.setVisible(False)
-        # self.actionSettings.setVisible(not self.actionSettings.isVisible())
-        # self.actionExitSettings.setVisible(not self.actionSettings.isVisible())
-
-
-        # Not implemented in UI yet
-        # def auto_download(self):
-        #     downloaded = self.video_files[self.c_video_index].auto_download()
-        #     if self.config['not_found_prompt'] and not downloaded:
-        #         self.search(index=self.c_video_index)
-        #     else:
-        #         self.search()
-        #
-        # def remove_selected(self):
-        #     rows = self.file_list.selectionModel().selectedRows()
-        #     rm_indexes = [row.row() for row in rows]
-        #     if rm_indexes:
-        #         self.video_files = [v for v in self.video_files
-        #                             if self.video_files.index(v) not in rm_indexes]
-        #     self.update_file_table()
 
     def about(self):
         dialog = QDialog()
@@ -367,7 +347,7 @@ class PySubGUI(QMainWindow, main_window.Ui_MainWindow):
         self.server.login()
 
     def process_files(self, file_list):
-        to_process=[]
+        to_process = []
         self.actionSearch.setEnabled(False)
 
         for video_file in file_list:
