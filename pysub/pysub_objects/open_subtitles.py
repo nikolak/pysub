@@ -110,12 +110,16 @@ class OpenSubtitlesServer(object):
         results = None
         attempts_left = attempts
         while not results and attempts_left > 0:
-            results = self.server.SearchSubtitles(self.token, query)
-            if results['status'] != '200 OK':
+            try:
+                results = self.server.SearchSubtitles(self.token, query)
+                if results['status'] != '200 OK':
+                    results = None
+                    attempts_left -= 1
+                else:
+                    return results
+            except:
                 results = None
-                attempts_left -= 1
-            else:
-                return results
+                attempts_left-=1
         print("{} failed...".format(desc))
         return None
 
