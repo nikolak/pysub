@@ -149,7 +149,7 @@ class Video(object):
         for sub_format in self.config['sub_ext']:
             for name in possible_filenames:
                 for folder in possible_folders:
-                    if os.path.exists("{}{}{}".format(folder, name.encode('utf-8'), sub_format)):
+                    if os.path.exists("{}{}{}".format(folder, name.decode('utf-8').encode('utf-8'), sub_format)):
                         return True
         return False
 
