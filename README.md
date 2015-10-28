@@ -16,7 +16,7 @@ Use `pysub --help` for command line help and `pysub-ui` to run the GUI.
 
 * Support for all video and subtitle files
 
-* Uses opensubtitles.org which has over 2963816 subtitles
+* Uses opensubtitles.org which has over 3484542 subtitles
 
 * File hash based search - to find the most suitable subitle for the video file
 
@@ -30,11 +30,11 @@ For the moment there are no binary distributions available - there will be in fu
  
 Recommended way to install pysub at the moment is by using `pip`:
 
-`pip install git+https://github.com/Nikola-K/pysub.git`
+`pip install git+https://github.com/Nikola-K/pysub.git` from the command line,
 
 Or by downloading the repository and running `python setup.py install`.
 
-For GUI you will also need to install pyside.
+For the GUI you will also need to install pyside.
 
 More information:
 
