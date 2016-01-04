@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright 2014 Nikola Kovacevic <nikolak@outlook.com>
+# Copyright 2016 Nikola Kovacevic <nikolak@outlook.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 
 import os
 import gzip
-import urllib2
-from StringIO import StringIO
+from urllib import request
+from io import StringIO
 
 
 class Subtitle(object):
@@ -83,7 +83,7 @@ class Subtitle(object):
                       "Check that you have write access for "
                       "{}".format(self.save_path))
 
-        sub_zip_file = urllib2.urlopen(self.download_link)
+        sub_zip_file = request.urlopen(self.download_link)
         sub_gzip = gzip.GzipFile(fileobj=StringIO(sub_zip_file.read()))
         subtitle_content = sub_gzip.read()
         try:
@@ -97,4 +97,3 @@ class Subtitle(object):
         return "<Sub {}S{}E{}>".format(self.movie_name,
                                        self.season_num,
                                        self.episode_num)
-

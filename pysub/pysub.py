@@ -1,11 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Subtitle downloader using OpenSubtitles.org API
 
 Command line command-line user interface
 """
-# Copyright 2014 Nikola Kovacevic <nikolak@outlook.com>
+# Copyright 2016 Nikola Kovacevic <nikolak@outlook.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ from __future__ import print_function
 import os
 import argparse
 
-from pysub_objects import Video, OpenSubtitlesServer
-from settings import default_config as config
+from .pysub_objects import Video, OpenSubtitlesServer
+from .settings import default_config as config
 
 
 def search_subtitles(file_list, config):
@@ -114,8 +114,8 @@ def download_prompt(video, force=False):
                                           subtitle.sub_filename.encode('utf-8')))
 
     while user_choice not in possible_choices:
-        user_input = raw_input("return - download first, 's' - skip, "
-                               "'a' - auto choose, 'q' - quit \n>>>")
+        user_input = input("return - download first, 's' - skip, "
+                           "'a' - auto choose, 'q' - quit \n>>>")
 
         user_choice = int(
             user_input) if user_input.isdigit() else user_input.lower()

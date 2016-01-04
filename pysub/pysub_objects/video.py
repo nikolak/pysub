@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright 2014 Nikola Kovacevic <nikolak@outlook.com>
+# Copyright 2016 Nikola Kovacevic <nikolak@outlook.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import difflib
 
 import guessit
 
-from subtitle import Subtitle
+from .subtitle import Subtitle
 
 
 class Video(object):
@@ -141,10 +141,10 @@ class Video(object):
         """
         possible_filenames = [self.file_name,  # video_filename.ext.sub_ext
                               "".join(self.file_name.split('.')[:-1])  # video_filename.sub_ext
-        ]
+                              ]
         possible_folders = [self.sub_path,  # same folder as video
                             "{}{}{}".format(self.sub_path, "Subs", os.sep)  # Subs folder
-        ]
+                            ]
 
         for sub_format in self.config['sub_ext']:
             for name in possible_filenames:
@@ -169,9 +169,9 @@ class Video(object):
                                            int(self.ep_info['episodeNumber']))
 
             return [{'sublanguageid': self.config['lang'],
-                     'query': _,
-                     'season': self.ep_info['season'],
-                     'episode': self.ep_info['episodeNumber']}]
+                     'query'        : _,
+                     'season'       : self.ep_info['season'],
+                     'episode'      : self.ep_info['episodeNumber']}]
         except KeyError:
             return None
 
@@ -187,7 +187,7 @@ class Video(object):
         """
         if self.file_hash:
             return [{"sublanguageid": self.config['lang'],
-                     'moviehash': self.file_hash,
+                     'moviehash'    : self.file_hash,
                      'moviebytesize': str(self.file_size)}]
 
         return None
@@ -278,4 +278,3 @@ class Video(object):
         repr,returns full video path
         """
         return "<Video {}>".format(self.file_name)
-
