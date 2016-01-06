@@ -20,7 +20,7 @@ history = open('CHANGELOG.md').read()
 setup(
     name='pysub',
     version=pysub.__version__,
-    description='Subtitle downloader written in python, using opensubtitles.com API',
+    description='Subtitle downloader written in python, using opensubtitles.org API',
     long_description=readme + '\n\n' + history,
     author='Nikola Kovacevic',
     author_email='nikolak@outlook.com',
@@ -31,13 +31,12 @@ setup(
     ],
     package_dir={'pysub': 'pysub'},
     include_package_data=True,
-    install_requires=["guessit==0.11.0",
+    install_requires=["guessit==1.0.2",
                       "appdirs==1.4.0"
     ],
     entry_points={
         'console_scripts': [
-            'pysub = pysub.pysub:main',
-            'pysub-ui = pysub.pysub_ui:main'
+            'pysub = pysub.pysub:main'
         ],
     },
     license="Apache Software License",

@@ -2,8 +2,7 @@
 
 ##0.4.0 (In development)
 
-* Python 3 support
-
+* Switched to python 3
 
 ##0.3.0 (2014-09-13)
 
