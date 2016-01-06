@@ -1,11 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Subtitle downloader using OpenSubtitles.org API
 
 Settings module
 """
-# Copyright 2014 Nikola Kovacevic <nikolak@outlook.com>
+# Copyright 2016 Nikola Kovacevic <nikolak@outlook.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ def get_config():
             with open(config_file, "r") as in_config:
                 return json.load(in_config)
         except:
-            print "Loading config failed"
+            print("Loading config failed")
             return default_config
 
     return default_config

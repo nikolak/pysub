@@ -4,15 +4,13 @@
 
 Fast and free subtitle downloader written in python. Has both command line and GUI interfaces (see screenshots below)
 
-Use `pysub --help` for command line help and `pysub-ui` to run the GUI.
+Use `pysub --help` for command line help.
 
 ##Features
 
 * Automatic downloading
 
 * Supports all languages
-
-* User friendly GUI (alpha version)
 
 * Support for all video and subtitle files
 
@@ -34,23 +32,7 @@ Recommended way to install pysub at the moment is by using `pip`:
 
 Or by downloading the repository and running `python setup.py install`.
 
-For the GUI you will also need to install pyside.
 
-More information:
-
-http://qt-project.org/wiki/PySide
-
-http://pip.readthedocs.org/en/latest/
-
-##Screenshots
-
-GNU/Linux GUI:
-
-![GUI Linux](screenshots/gui_0.2.0.png?raw=true)
-
-GNU/Linux CLI:
-
-![GUI Linux](screenshots/terminal_0.2.0.png?raw=true)
 
 ##Command Line Interace Help
 

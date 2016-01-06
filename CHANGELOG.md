@@ -1,6 +1,10 @@
 #Changelog
 
-##0.3.0 (Current - Master)
+##0.4.0 (In development)
+
+* Switched to python 3
+
+##0.3.0 (2014-09-13)
 
 * Connect to servers only when necessary
 
