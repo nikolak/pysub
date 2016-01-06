@@ -22,9 +22,12 @@ Command line command-line user interface
 import os
 import argparse
 
-from pysub_objects import Video, OpenSubtitlesServer
-from settings import default_config as config
-
+try:
+    from pysub.pysub_objects import Video, OpenSubtitlesServer
+    from pysub.settings import default_config as config
+except ImportError:
+    from pysub_objects import Video, OpenSubtitlesServer
+    from settings import default_config as config
 
 def search_subtitles(file_list, config):
     """
