@@ -25,9 +25,12 @@ import argparse
 try:
     from pysub.pysub_objects import Video, OpenSubtitlesServer
     from pysub.settings import default_config as config
+    from pysub import __version__
 except ImportError:
     from pysub_objects import Video, OpenSubtitlesServer
     from settings import default_config as config
+    from __init__ import __version__
+
 
 def search_subtitles(file_list, config):
     """
@@ -184,12 +187,17 @@ def main():
                         help="Additional file formats that will be checked, "
                              "comma separated, specify only file formats "
                              "e.g. 'avix,temp,format2' (without quotes)")
+
     parser.add_argument("-r", "--recursive", action="store_true",
                         help="Search files recursively")
 
     parser.add_argument("-p", "--nfprompt", action="store_true",
                         help="Prompt which subtitle to download if auto"
                              "downloader can't choose one")
+
+    parser.add_argument('-V', '--version',
+                        action='version',
+                        version='%(prog)s (version {})'.format(__version__))
     args = parser.parse_args()
 
     if args.format:
